@@ -398,6 +398,7 @@ function TaskDetail({
         {editing ? (
           <TaskEditForm
             key={task.id}
+            allTasks={plan.tasks}
             task={task}
             onCancel={() => setEditing(false)}
             onSaved={async () => {
@@ -461,11 +462,28 @@ function TaskDetail({
   );
 }
 
-function TaskEditForm({ task, onCancel, onSaved }: { task: StoredTask; onCancel: () => void; onSaved: () => void }) {
+function TaskEditForm({
+  task,
+  allTasks,
+  onCancel,
+  onSaved,
+}: {
+  task: StoredTask;
+  allTasks: StoredTask[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
   const [title, setTitle] = React.useState(task.title);
   const [description, setDescription] = React.useState(task.description);
   const [priority, setPriority] = React.useState<TaskPriority>(task.priority);
   const [status, setStatus] = React.useState<TaskStatus>(task.status);
+  const [dependencyIds, setDependencyIds] = React.useState<string[]>(task.dependencyIds ?? []);
+
+  const dependencyOptions = allTasks.filter((item) => item.id !== task.id);
+
+  function toggleDependency(id: string) {
+    setDependencyIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
 
   async function save() {
     await patchTask(task.id, {
@@ -473,6 +491,7 @@ function TaskEditForm({ task, onCancel, onSaved }: { task: StoredTask; onCancel:
       description,
       priority,
       status,
+      dependencyIds,
     });
     await onSaved();
   }
@@ -505,6 +524,21 @@ function TaskEditForm({ task, onCancel, onSaved }: { task: StoredTask; onCancel:
           </select>
         </Field>
       </div>
+      <Field>
+        <FieldLabel>前置依赖任务</FieldLabel>
+        <div className="flex max-h-32 flex-col gap-1 overflow-auto rounded-md border border-slate-200 p-2">
+          {dependencyOptions.length ? (
+            dependencyOptions.map((item) => (
+              <label className="flex items-center gap-2 text-sm text-slate-700" key={item.id}>
+                <input type="checkbox" checked={dependencyIds.includes(item.id)} onChange={() => toggleDependency(item.id)} />
+                {item.title}
+              </label>
+            ))
+          ) : (
+            <span className="text-xs text-slate-500">无其它任务可选</span>
+          )}
+        </div>
+      </Field>
       <div className="flex gap-2">
         <Button type="button" size="sm" onClick={save}>
           <Save data-icon="inline-start" aria-hidden="true" />

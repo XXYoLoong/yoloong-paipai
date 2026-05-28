@@ -6,13 +6,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, CalendarDays, CheckCircle2, CircleDashed, Loader2, Search, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
-import type { PlanWithTasks } from "@/lib/types";
+import type { GoalTemplate, PlanWithTasks } from "@/lib/types";
 import { toCommaList } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from "@/components/ui/field";
 import { TaskBoard } from "@/components/planner/task-board";
+import { TemplatePicker } from "@/components/planner/template-picker";
+import { detectSensitiveInput } from "@/lib/agent/heuristics";
+import type { StageLogEntry } from "@/lib/types";
 
 type GenerateResponse = {
   planId: string;
@@ -32,6 +35,8 @@ const plannerFormSchema = z.object({
   constraintsText: z.string().default(""),
   enableSearch: z.boolean(),
   qualityMode: z.enum(["fast", "quality"]),
+  templateId: z.string().optional(),
+  memoryMode: z.enum(["on", "off"]).default("on"),
 });
 
 type FormInput = z.input<typeof plannerFormSchema>;
@@ -43,10 +48,18 @@ const examples = [
   "组织一次 30 人班级团建，需要控制预算并准备应急预案",
 ];
 
-export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; title: string; summary: string; createdAt: string }> }) {
+export function PlannerApp({
+  recentPlans,
+  templates,
+}: {
+  recentPlans: Array<{ id: string; title: string; summary: string; createdAt: string }>;
+  templates: GoalTemplate[];
+}) {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generated, setGenerated] = React.useState<GenerateResponse | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [liveStages, setLiveStages] = React.useState<StageLogEntry[]>([]);
+  const [liveWarnings, setLiveWarnings] = React.useState<string[]>([]);
 
   const form = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(plannerFormSchema),
@@ -59,6 +72,8 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
       constraintsText: "",
       enableSearch: true,
       qualityMode: "fast",
+      templateId: undefined,
+      memoryMode: "on",
     },
   });
   const qualityMode = useWatch({
@@ -66,27 +81,50 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
     name: "qualityMode",
   });
 
+  function buildPayload(values: FormValues) {
+    return {
+      goal: values.goal,
+      deadline: values.deadline || undefined,
+      budget: values.budget ? Number(values.budget) : undefined,
+      location: values.location || undefined,
+      preferences: toCommaList(values.preferencesText),
+      constraints: toCommaList(values.constraintsText),
+      enableSearch: values.enableSearch,
+      qualityMode: values.qualityMode,
+      templateId: values.templateId,
+      memoryMode: values.memoryMode,
+    };
+  }
+
   async function onSubmit(values: FormValues) {
+    if (detectSensitiveInput(values.goal)) {
+      const ok = window.confirm("检测到目标中可能包含敏感信息，建议先脱敏。仍要继续生成吗？");
+      if (!ok) return;
+    }
+
     setIsGenerating(true);
     setError(null);
     setGenerated(null);
+    setLiveStages([]);
+    setLiveWarnings([]);
+
+    const payload = buildPayload(values);
+
+    try {
+      const streamed = await generateViaSse(payload);
+      if (streamed) {
+        setGenerated(streamed);
+        return;
+      }
+    } catch {
+      // fallback below
+    }
 
     try {
       const response = await fetch("/api/plans/generate", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          goal: values.goal,
-          deadline: values.deadline || undefined,
-          budget: values.budget ? Number(values.budget) : undefined,
-          location: values.location || undefined,
-          preferences: toCommaList(values.preferencesText),
-          constraints: toCommaList(values.constraintsText),
-          enableSearch: values.enableSearch,
-          qualityMode: values.qualityMode,
-        }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       const data = (await response.json()) as GenerateResponse & { error?: string };
@@ -100,6 +138,67 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  async function generateViaSse(payload: ReturnType<typeof buildPayload>) {
+    const response = await fetch("/api/plans/generate/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok || !response.body) {
+      return null;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        const json = JSON.parse(line.replace(/^data:\s*/, "")) as {
+          type: string;
+          stage?: string;
+          status?: string;
+          message?: string;
+          planId?: string;
+          storedPlan?: PlanWithTasks;
+          stageLog?: StageLogEntry[];
+          warnings?: string[];
+        };
+
+        if (json.type === "stage" && json.stage && json.status && json.message) {
+          const entry = { stage: json.stage, status: json.status, message: json.message } as StageLogEntry;
+          setLiveStages((current) => [...current, entry]);
+        }
+        if (json.type === "warning" && json.message) {
+          setLiveWarnings((current) => [...current, json.message!]);
+        }
+        if (json.type === "done" && json.storedPlan) {
+          return {
+            planId: json.planId!,
+            storedPlan: json.storedPlan,
+            stageLog: json.stageLog ?? [],
+            warnings: json.warnings ?? [],
+          } satisfies GenerateResponse;
+        }
+        if (json.type === "error") {
+          throw new Error(json.message ?? "流式生成失败");
+        }
+      }
+    }
+
+    return null;
   }
 
   return (
@@ -135,6 +234,24 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent>
               <FieldGroup>
+                <TemplatePicker
+                  templates={templates}
+                  onApply={(payload) => {
+                    form.reset({
+                      goal: payload.goal,
+                      deadline: payload.deadline ?? "",
+                      budget: payload.budget ?? "",
+                      location: payload.location ?? "",
+                      preferencesText: payload.preferencesText ?? "",
+                      constraintsText: payload.constraintsText ?? "",
+                      enableSearch: payload.enableSearch ?? true,
+                      qualityMode: payload.qualityMode ?? "fast",
+                      templateId: payload.templateId,
+                      memoryMode: "on",
+                    });
+                  }}
+                />
+
                 <Field>
                   <FieldLabel htmlFor="goal">复杂目标</FieldLabel>
                   <Textarea id="goal" {...form.register("goal")} />
@@ -181,6 +298,15 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
                     />
                     使用高质量模型
                   </label>
+                  <label className="flex items-center gap-3 text-sm font-medium text-slate-800">
+                    <input
+                      className="size-4 accent-teal-700"
+                      type="checkbox"
+                      checked={form.getValues("memoryMode") === "on"}
+                      onChange={(e) => form.setValue("memoryMode", e.target.checked ? "on" : "off")}
+                    />
+                    启用 Agent 记忆检索
+                  </label>
                 </div>
               </FieldGroup>
             </CardContent>
@@ -211,7 +337,7 @@ export function PlannerApp({ recentPlans }: { recentPlans: Array<{ id: string; t
             </Card>
           ) : null}
 
-          {isGenerating ? <GeneratingPanel /> : null}
+          {isGenerating ? <GeneratingPanel stages={liveStages} warnings={liveWarnings} /> : null}
 
           {generated?.storedPlan ? (
             <GeneratedPanel response={generated} onPlanChange={(plan) => setGenerated({ ...generated, storedPlan: plan })} />
@@ -272,22 +398,27 @@ function InfoStrip({ icon: Icon, title, description }: { icon: React.ComponentTy
   );
 }
 
-function GeneratingPanel() {
-  const stages = ["理解目标", "规划搜索", "查询资料", "生成任务", "校验保存"];
+function GeneratingPanel({ stages, warnings }: { stages: StageLogEntry[]; warnings: string[] }) {
+  const fallback = ["理解目标", "规划搜索", "查询资料", "生成任务", "校验保存"];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Agent 正在排排</CardTitle>
-        <CardDescription>这通常会在一分钟内完成；没有 API Key 时会自动使用本地基础拆解。</CardDescription>
+        <CardTitle>Agent 正在排排（SSE 实时）</CardTitle>
+        <CardDescription>这通常会在一分钟内完成；失败时自动回退同步接口。</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-5">
-        {stages.map((stage) => (
-          <div className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600" key={stage}>
-            <CircleDashed className="animate-spin" aria-hidden="true" />
-            {stage}
-          </div>
-        ))}
+      <CardContent className="flex flex-col gap-3">
+        {warnings.length ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{warnings.join("；")}</div>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(stages.length ? stages : fallback.map((label) => ({ stage: label, status: "done" as const, message: label }))).map((stage) => (
+            <div className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600" key={`${stage.stage}-${stage.message}`}>
+              {stages.length ? <CheckCircle2 className="text-teal-700" aria-hidden="true" /> : <CircleDashed className="animate-spin" aria-hidden="true" />}
+              {stage.message}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
@@ -330,9 +461,9 @@ function GeneratedPanel({ response, onPlanChange }: { response: GenerateResponse
           <Link href={`/plans/${plan.id}`}>
             <Button type="button" variant="secondary">打开独立计划页</Button>
           </Link>
-          <a href={`/api/export/${plan.id}.md`}>
-            <Button type="button" variant="ghost">导出 Markdown</Button>
-          </a>
+          <Link href={`/plans/${plan.id}#export`}>
+            <Button type="button" variant="ghost">导出中心</Button>
+          </Link>
         </CardFooter>
       </Card>
 

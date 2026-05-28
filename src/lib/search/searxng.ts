@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db, initDb } from "@/lib/db";
 import { searchCache } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { scoreCredibility } from "@/lib/search/credibility";
 import type { EvidenceItem } from "@/lib/types";
 
 type RawSearxResult = {
@@ -62,18 +63,31 @@ export async function searchSearxng(query: string, limit = 5): Promise<EvidenceI
   }
 
   const data = (await response.json()) as RawSearxResponse;
+  const seenUrls = new Set<string>();
   const items = (data.results ?? [])
     .filter((item) => item.title && item.url)
     .slice(0, limit)
-    .map((item, index) => ({
-      id: `${queryHash}-${index}`,
-      title: item.title ?? "未命名结果",
-      snippet: item.content ?? "",
-      url: item.url ?? "",
-      source: item.engine ?? "SearXNG",
-      queryHash,
-      query,
-    }));
+    .map((item, index) => {
+      const scored = scoreCredibility({
+        url: item.url ?? "",
+        title: item.title ?? "未命名结果",
+        snippet: item.content ?? "",
+        source: item.engine ?? "SearXNG",
+        seenUrls,
+      });
+      return {
+        id: `${queryHash}-${index}`,
+        title: item.title ?? "未命名结果",
+        snippet: item.content ?? "",
+        url: item.url ?? "",
+        source: item.engine ?? "SearXNG",
+        queryHash,
+        query,
+        credibility: scored.credibility,
+        domain: scored.domain,
+        citationReason: scored.citationReason,
+      };
+    });
 
   db.insert(searchCache)
     .values({
@@ -101,10 +115,25 @@ export async function searchMany(queries: string[], limitPerQuery = 5) {
 
   const items: EvidenceItem[] = [];
   const errors: string[] = [];
+  const globalSeen = new Set<string>();
 
   for (const result of settled) {
     if (result.status === "fulfilled") {
-      items.push(...result.value);
+      for (const item of result.value) {
+        const scored = scoreCredibility({
+          url: item.url,
+          title: item.title,
+          snippet: item.snippet,
+          source: item.source,
+          seenUrls: globalSeen,
+        });
+        items.push({
+          ...item,
+          credibility: scored.credibility,
+          domain: scored.domain,
+          citationReason: scored.citationReason,
+        });
+      }
     } else {
       errors.push(result.reason instanceof Error ? result.reason.message : "搜索失败");
     }

@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { env } from "@/lib/env";
 import { isAuthEnabledFromHash } from "@/lib/auth-core";
+import { getAppSettings } from "@/lib/db/queries";
 import { HealthCheckPanel } from "@/components/settings/health-check-panel";
+import { SettingsForm } from "@/components/settings/settings-form";
 
 export default function SettingsPage() {
+  const appSettings = getAppSettings();
   const settings = [
     ["DeepSeek API", env.DEEPSEEK_API_KEY ? "已配置" : "未配置，将使用本地基础拆解"],
     ["默认模型", env.DEEPSEEK_MODEL],
@@ -21,12 +24,16 @@ export default function SettingsPage() {
       <header className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal text-slate-950">设置</h1>
-          <p className="mt-1 text-sm text-slate-500">这里展示服务端环境配置，不在浏览器暴露 API Key。</p>
+          <p className="mt-1 text-sm text-slate-500">运行配置只读；应用偏好与数据清理可在下方操作。</p>
         </div>
         <Link href="/">
-          <Button type="button" variant="secondary">返回首页</Button>
+          <Button type="button" variant="secondary">
+            返回首页
+          </Button>
         </Link>
       </header>
+
+      <SettingsForm initial={appSettings} />
 
       <Card>
         <CardHeader>

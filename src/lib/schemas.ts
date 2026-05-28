@@ -10,6 +10,8 @@ export const goalInputSchema = z.object({
   constraints: z.array(z.string().trim().min(1)).default([]),
   enableSearch: z.boolean().default(true),
   qualityMode: z.enum(["fast", "quality"]).default("fast"),
+  templateId: z.string().trim().optional(),
+  memoryMode: z.enum(["on", "off"]).default("on"),
 });
 
 export const planTaskSchema: z.ZodType<PlanTask> = z.lazy(() =>
@@ -21,6 +23,7 @@ export const planTaskSchema: z.ZodType<PlanTask> = z.lazy(() =>
     dueDate: z.string().optional(),
     estimatedMinutes: z.coerce.number().int().positive().optional(),
     evidenceIds: z.array(z.string()).default([]),
+    dependencyIds: z.array(z.string()).default([]),
     subtasks: z.array(planTaskSchema).default([]),
   }),
 );
@@ -50,6 +53,19 @@ export const taskPatchSchema = z.object({
   status: z.enum(["todo", "doing", "done"]).optional(),
   dueDate: z.string().nullable().optional(),
   estimatedMinutes: z.coerce.number().int().positive().nullable().optional(),
+  dependencyIds: z.array(z.string()).optional(),
+  riskLevel: z.string().nullable().optional(),
+  confirmRequired: z.boolean().optional(),
+});
+
+export const planReviewSchema = z.object({
+  delayReasons: z.array(z.string().trim().min(1)).default([]),
+  summary: z.string().trim().min(4, "复盘摘要至少 4 个字"),
+});
+
+export const appSettingsSchema = z.object({
+  defaultEnableSearch: z.boolean().optional(),
+  defaultQualityMode: z.enum(["fast", "quality"]).optional(),
 });
 
 export const reorderTasksSchema = z.object({

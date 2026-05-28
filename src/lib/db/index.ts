@@ -6,6 +6,10 @@ import { sql } from "drizzle-orm";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { env } from "@/lib/env";
+import { runMigrations } from "@/lib/db/migrate";
+import { BUILTIN_TEMPLATES } from "@/lib/templates/builtin-data";
+import { stringifyJson } from "@/lib/db/json";
+import { templates } from "@/lib/db/schema";
 import * as schema from "@/lib/db/schema";
 
 const globalForDb = globalThis as unknown as {
@@ -62,6 +66,10 @@ export function initDb() {
       assumptions_json TEXT NOT NULL DEFAULT '[]',
       follow_up_questions_json TEXT NOT NULL DEFAULT '[]',
       search_queries_json TEXT NOT NULL DEFAULT '[]',
+      template_id TEXT,
+      prompt_version TEXT,
+      schema_version TEXT,
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
@@ -79,6 +87,10 @@ export function initDb() {
       due_date TEXT,
       estimated_minutes INTEGER,
       evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+      dependency_ids_json TEXT NOT NULL DEFAULT '[]',
+      completed_at TEXT,
+      risk_level TEXT,
+      confirm_required INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -95,6 +107,9 @@ export function initDb() {
       source TEXT NOT NULL DEFAULT 'SearXNG',
       query_hash TEXT NOT NULL,
       query TEXT NOT NULL,
+      credibility TEXT NOT NULL DEFAULT 'unverified',
+      domain TEXT,
+      citation_reason TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -118,6 +133,10 @@ export function initDb() {
       status TEXT NOT NULL,
       error_message TEXT,
       stage_log_json TEXT NOT NULL DEFAULT '[]',
+      prompt_version TEXT,
+      schema_version TEXT,
+      fallback_reason TEXT,
+      latency_ms INTEGER,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -130,6 +149,67 @@ export function initDb() {
     )
   `);
 
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS user_memory (
+      id TEXT PRIMARY KEY,
+      goal_type TEXT NOT NULL,
+      preferences_json TEXT NOT NULL DEFAULT '[]',
+      constraints_json TEXT NOT NULL DEFAULT '[]',
+      notes TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      goal_type TEXT NOT NULL,
+      goal_template TEXT NOT NULL,
+      default_fields_json TEXT NOT NULL DEFAULT '{}',
+      builtin INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS plan_reviews (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      completion_rate REAL NOT NULL DEFAULT 0,
+      delay_reasons_json TEXT NOT NULL DEFAULT '[]',
+      summary TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS export_jobs (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      format TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      file_path TEXT,
+      sensitive_flags_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  runMigrations();
+
+  for (const template of BUILTIN_TEMPLATES) {
+    db.insert(templates)
+      .values({
+        id: template.id,
+        name: template.name,
+        goalType: template.goalType,
+        goalTemplate: template.goalTemplate,
+        defaultFieldsJson: stringifyJson(template.defaultFields),
+        builtin: template.builtin ? 1 : 0,
+      })
+      .onConflictDoNothing()
+      .run();
+  }
+
   initialized = true;
 }
-

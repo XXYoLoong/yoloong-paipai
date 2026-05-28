@@ -53,14 +53,29 @@ docker compose up --build
 
 默认数据保存在 Docker volume `youlong-data` 中，SQLite 路径为 `/data/youlong.sqlite`。
 
-## 核心功能
+## 核心功能（V2.0）
 
-- 复杂目标输入：目标、截止时间、预算、地点、偏好、限制条件
-- Agent 拆解：意图识别、槽位提取、补充问题、搜索规划、计划生成、校验保存
-- 本地搜索：通过 SearXNG 获取来源并绑定到任务
-- 任务管理：待办、进行中、已完成，支持拖拽排序、手动新增、编辑
-- 历史计划：所有计划保存到本地 SQLite
-- Markdown 导出：`/api/export/:planId.md`
+- 模板库：7 类内置场景一键填充目标
+- Agent 记忆：按目标类型检索历史偏好并注入生成
+- SSE 流式阶段反馈：生成过程实时展示 stageLog
+- 来源可信度：高/中/低/待复核分级与引用说明
+- 子任务树形看板：展开、子任务、拖拽、依赖编辑
+- 时间轴：按截止时间排序并提示阻塞任务
+- 历史管理：搜索、筛选、归档、复制、删除确认
+- 导出中心：`/api/export/:planId?format=md|docx|pdf|xlsx|bundle`
+- 报告助手：`POST /api/reports/generate`
+- 复盘面板：完成率、延期原因、记忆反哺
+- 访问密码、工具健康检查、提交包检查、AI 使用声明
+
+## 质量命令
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm check:submit
+pnpm build
+```
 
 ## 隐私策略
 

@@ -1,15 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TaskBoard } from "@/components/planner/task-board";
+import { PlanTimeline } from "@/components/planner/plan-timeline";
+import { ExportPanel } from "@/components/planner/export-panel";
+import { PlanReviewPanel } from "@/components/planner/plan-review-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { getPlan } from "@/lib/db/queries";
+import { getLatestAgentRun, getPlan } from "@/lib/db/queries";
 
 type PageProps = {
   params: Promise<{
     id: string;
   }>;
+};
+
+const credibilityTone: Record<string, "teal" | "indigo" | "amber" | "slate"> = {
+  high: "teal",
+  medium: "indigo",
+  low: "amber",
+  unverified: "slate",
 };
 
 export default async function PlanPage({ params }: PageProps) {
@@ -19,6 +29,8 @@ export default async function PlanPage({ params }: PageProps) {
   if (!plan) {
     notFound();
   }
+
+  const agentRun = getLatestAgentRun(id);
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -32,17 +44,48 @@ export default async function PlanPage({ params }: PageProps) {
           <div className="flex flex-wrap gap-2">
             <Badge tone="teal">{plan.goalType}</Badge>
             <Badge tone="indigo">{plan.tasks.length} 个任务</Badge>
+            {plan.promptVersion ? <Badge tone="slate">Prompt {plan.promptVersion}</Badge> : null}
             <Badge tone="slate">{new Date(plan.createdAt).toLocaleString("zh-CN")}</Badge>
           </div>
         </div>
-        <a href={`/api/export/${plan.id}.md`}>
-          <Button type="button" variant="secondary">导出 Markdown</Button>
+        <a href={`/api/export/${plan.id}?format=md`}>
+          <Button type="button" variant="secondary">
+            快速导出 Markdown
+          </Button>
         </a>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <TaskBoard plan={plan} />
+        <div className="flex flex-col gap-6">
+          <PlanTimeline plan={plan} />
+          <TaskBoard plan={plan} />
+        </div>
         <aside className="flex flex-col gap-6">
+          <div id="export">
+            <ExportPanel planId={plan.id} planTitle={plan.title} />
+          </div>
+
+          <PlanReviewPanel planId={plan.id} />
+
+          {agentRun ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Agent 阶段日志</CardTitle>
+                <CardDescription>
+                  {agentRun.modelName} · {agentRun.status}
+                  {agentRun.promptVersion ? ` · ${agentRun.promptVersion}` : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                {agentRun.stageLog.map((stage) => (
+                  <div className="rounded-md bg-slate-50 p-2 text-xs leading-5 text-slate-600" key={`${stage.stage}-${stage.message}`}>
+                    {stage.message}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>原始目标</CardTitle>
@@ -67,7 +110,7 @@ export default async function PlanPage({ params }: PageProps) {
           <Card>
             <CardHeader>
               <CardTitle>搜索来源</CardTitle>
-              <CardDescription>启用搜索后保存的公开资料。</CardDescription>
+              <CardDescription>含可信度分级（F-05）。</CardDescription>
             </CardHeader>
             <CardContent className="flex max-h-[420px] flex-col gap-3 overflow-auto">
               {plan.evidenceItems.length ? (
@@ -79,8 +122,14 @@ export default async function PlanPage({ params }: PageProps) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <span className="font-medium text-slate-950">{item.title}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-slate-950">{item.title}</span>
+                      <Badge tone={credibilityTone[item.credibility ?? "unverified"] ?? "slate"}>
+                        {item.credibility ?? "unverified"}
+                      </Badge>
+                    </div>
                     <span className="mt-1 block line-clamp-2 text-slate-500">{item.snippet}</span>
+                    {item.citationReason ? <span className="mt-1 block text-xs text-slate-400">{item.citationReason}</span> : null}
                   </a>
                 ))
               ) : (
@@ -111,4 +160,3 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
     </div>
   );
 }
-

@@ -9,6 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check:submit": "node scripts/check-submit-package.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio"
   },
@@ -19,9 +21,13 @@
     "@hookform/resolvers": "^5.2.2",
     "better-sqlite3": "^12.10.0",
     "clsx": "^2.1.1",
+    "docx": "^9.7.1",
     "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.76.0",
@@ -34,10 +40,12 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.7",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

@@ -69,3 +69,8 @@
 - Audit method: 读取 `游龙排排_V2.0_二期开发功能表.xlsx` 全表，与 `src/`、`docs/`、`scripts/` 逐项核对。
 - Completion summary: 16 项可判定功能中已完成 5 项（F-04、F-06、F-10、F-13、F-18）；未完成 11 项；F-14/F-15 按用户要求排除。M1 里程碑 5/6 有代码交付，缺 F-16 测试体系。
 - Deliverable: 新增 `docs/phase2-completion-audit.md` 作为对照审计记录并提交 Git。
+
+### 2026-05-29 Round 2
+- Request received: 按二期计划一次性完成剩余 16 项功能（不含 F-14/F-15），含实机验收。
+- Implementation: 完成数据层扩展、记忆/模板/Prompt、可信度、SSE 流式、历史筛选、依赖时间轴、导出中心、报告助手、复盘、设置可写、Vitest 测试矩阵。
+- Verification: `pnpm typecheck`、`pnpm lint`、`pnpm test`（9 项）、`pnpm check:submit`、`pnpm build` 通过；浏览器实机验证首页模板库、历史筛选、计划页导出/复盘/时间轴/阶段日志。

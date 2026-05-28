@@ -1,13 +1,13 @@
 import "server-only";
 
 import { env } from "@/lib/env";
+import {
+  buildPlanMessages,
+  REPAIR_PROMPT_SYSTEM,
+  type DeepSeekMessage,
+} from "@/lib/agent/prompts";
 import { generatedPlanSchema } from "@/lib/schemas";
 import type { EvidenceItem, GeneratedPlan, GoalInput } from "@/lib/types";
-
-type DeepSeekMessage = {
-  role: "system" | "user";
-  content: string;
-};
 
 type DeepSeekResponse = {
   choices?: Array<{
@@ -27,6 +27,7 @@ export type DeepSeekPlanResult = {
 export async function generatePlanWithDeepSeek(
   input: GoalInput,
   evidenceItems: EvidenceItem[],
+  memoryContext?: string,
 ): Promise<DeepSeekPlanResult> {
   if (!env.DEEPSEEK_API_KEY) {
     throw new Error("未配置 DEEPSEEK_API_KEY，已切换为本地基础拆解。");
@@ -34,7 +35,7 @@ export async function generatePlanWithDeepSeek(
 
   const model = input.qualityMode === "quality" ? env.DEEPSEEK_HIGH_QUALITY_MODEL : env.DEEPSEEK_MODEL;
   const timeoutMs = input.qualityMode === "quality" ? 90_000 : 60_000;
-  const messages = buildMessages(input, evidenceItems);
+  const messages = buildPlanMessages(input, evidenceItems, memoryContext);
   const raw = await callDeepSeek(model, messages, timeoutMs);
   const content = raw.choices?.[0]?.message?.content;
 
@@ -62,17 +63,20 @@ export async function generatePlanWithDeepSeek(
 }
 
 async function repairPlanJson(model: string, invalidContent: string, errorMessage: string, timeoutMs: number) {
-  const raw = await callDeepSeek(model, [
-    {
-      role: "system",
-      content:
-        "你是 JSON 修复器。只输出符合要求的 JSON，不要 Markdown，不要解释。必须包含 title、goalType、summary、assumptions、followUpQuestions、searchQueries、tasks。",
-    },
-    {
-      role: "user",
-      content: `以下 JSON 不符合 schema，请修复。错误：${errorMessage}\n\n${invalidContent}`,
-    },
-  ], timeoutMs);
+  const raw = await callDeepSeek(
+    model,
+    [
+      {
+        role: "system",
+        content: REPAIR_PROMPT_SYSTEM,
+      },
+      {
+        role: "user",
+        content: `以下 JSON 不符合 schema，请修复。错误：${errorMessage}\n\n${invalidContent}`,
+      },
+    ],
+    timeoutMs,
+  );
 
   const content = raw.choices?.[0]?.message?.content;
   const parsed = generatedPlanSchema.parse(parseModelJson(content ?? "{}"));
@@ -125,41 +129,6 @@ function formatDeepSeekFetchError(error: unknown, timeoutMs: number) {
   }
 
   return "DeepSeek 请求失败，已切换为本地基础拆解。";
-}
-
-function buildMessages(input: GoalInput, evidenceItems: EvidenceItem[]): DeepSeekMessage[] {
-  const evidenceText = evidenceItems
-    .slice(0, 12)
-    .map((item, index) => `${index + 1}. [${item.id}] ${item.title}\n${item.snippet}\n${item.url}`)
-    .join("\n\n");
-
-  return [
-    {
-      role: "system",
-      content: [
-        "你是《游龙排排》的智能任务规划 Agent。",
-        "你的任务是把用户复杂目标拆成可以执行的 To-do List。",
-        "只输出 JSON 对象，不要 Markdown。",
-        "JSON 字段必须为：title, goalType, summary, assumptions, followUpQuestions, searchQueries, tasks。",
-        "goalType 只能是 travel, study, event, career, shopping, health, general。",
-        "tasks 至少 5 个主任务，任务字段为 title, description, priority, status, dueDate, estimatedMinutes, evidenceIds, subtasks。",
-        "priority 只能是 high、medium、low；status 默认 todo。",
-        "如果引用搜索证据，只能使用给出的 evidence id。",
-        "不要编造实时价格、开放时间、政策或数据；没有证据时写成待确认任务。",
-      ].join("\n"),
-    },
-    {
-      role: "user",
-      content: JSON.stringify(
-        {
-          input,
-          evidenceItems: evidenceText || "未提供搜索证据。",
-        },
-        null,
-        2,
-      ),
-    },
-  ];
 }
 
 function parseModelJson(content: string) {
