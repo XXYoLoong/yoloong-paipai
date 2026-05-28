@@ -64,6 +64,12 @@ export function HealthCheckPanel() {
     }
   }, []);
 
+  React.useEffect(() => {
+    void runCheck();
+  }, [runCheck]);
+
+  const searxngCheck = health?.checks.find((item) => item.key === "searxng");
+
   return (
     <Card>
       <CardHeader>
@@ -82,6 +88,16 @@ export function HealthCheckPanel() {
         {error ? (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
             {error}
+          </div>
+        ) : null}
+
+        {searxngCheck && searxngCheck.status !== "ok" ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            <div className="font-semibold">联网搜索未就绪</div>
+            <p className="mt-2">{searxngCheck.message}</p>
+            <p className="mt-2">
+              请打开 Docker Desktop → 重新运行 <code className="rounded bg-white/80 px-1">start-youlong-paipai.bat</code> → 确认本页 SearXNG 变为「正常」后再勾选首页搜索。
+            </p>
           </div>
         ) : null}
 

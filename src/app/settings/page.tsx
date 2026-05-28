@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +25,9 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-semibold tracking-normal text-slate-950">设置</h1>
           <p className="mt-1 text-sm text-slate-500">运行配置只读；应用偏好与数据清理可在下方操作。</p>
         </div>
-        <Link href="/">
-          <Button type="button" variant="secondary">
-            返回首页
-          </Button>
-        </Link>
+        <Button href="/" variant="secondary">
+          返回首页
+        </Button>
       </header>
 
       <SettingsForm initial={appSettings} />

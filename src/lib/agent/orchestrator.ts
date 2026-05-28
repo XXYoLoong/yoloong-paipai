@@ -17,6 +17,7 @@ import {
   inferGoalType,
 } from "@/lib/agent/heuristics";
 import { generatePlanWithDeepSeek } from "@/lib/agent/deepseek";
+import { normalizePlanSchedule, remapDependencyIds } from "@/lib/agent/due-dates";
 import { retrieveMemoryContext, upsertMemoryFromPlan } from "@/lib/agent/memory";
 import { PROMPT_VERSION, SCHEMA_VERSION } from "@/lib/agent/prompts";
 import { fillTemplateGoal, getTemplate } from "@/lib/templates/builtin";
@@ -164,6 +165,8 @@ export async function runPlanPipeline(rawInput: unknown, callbacks: PipelineCall
     message: "结构化结果已通过服务端 schema 校验。",
   });
 
+  generatedPlan = normalizePlanSchedule(generatedPlan, { deadline: input.deadline });
+
   const planId = persistPlan(input, generatedPlan, foundEvidence);
 
   db.insert(agentRuns)
@@ -288,45 +291,71 @@ function persistPlan(input: GoalInput, plan: GeneratedPlan, foundEvidence: Evide
         .run();
     }
 
-    insertTasks(plan.tasks, planId, undefined, new Map());
+    insertTasks(plan.tasks, planId);
   });
 
   return planId;
 }
 
-function insertTasks(
-  planTasks: PlanTask[],
-  planId: string,
-  parentTaskId: string | undefined,
-  idMap: Map<string, string>,
-) {
+type PendingTask = {
+  task: PlanTask;
+  tempKey: string;
+  parentTempKey?: string;
+  sortOrder: number;
+};
+
+function flattenPlanTasks(planTasks: PlanTask[], parentTempKey?: string, bucket: PendingTask[] = []) {
   planTasks.forEach((task, index) => {
-    const taskId = randomUUID();
-    if (task.id) {
-      idMap.set(task.id, taskId);
+    const tempKey = task.id?.trim() || `${parentTempKey ?? "root"}:${index}`;
+    bucket.push({
+      task,
+      tempKey,
+      parentTempKey,
+      sortOrder: index,
+    });
+    if (task.subtasks?.length) {
+      flattenPlanTasks(task.subtasks, tempKey, bucket);
     }
+  });
+  return bucket;
+}
+
+function insertTasks(planTasks: PlanTask[], planId: string) {
+  const pending = flattenPlanTasks(planTasks);
+  const idMap = new Map<string, string>();
+
+  for (const item of pending) {
+    const taskId = randomUUID();
+    idMap.set(item.tempKey, taskId);
+    if (item.task.id?.trim()) {
+      idMap.set(item.task.id.trim(), taskId);
+    }
+  }
+
+  const validIds = new Set(idMap.values());
+
+  for (const item of pending) {
+    const taskId = idMap.get(item.tempKey)!;
+    const parentTaskId = item.parentTempKey ? idMap.get(item.parentTempKey) : undefined;
+    const dependencyIds = remapDependencyIds(item.task.dependencyIds, idMap, validIds);
 
     db.insert(tasks)
       .values({
         id: taskId,
         planId,
         parentTaskId,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        status: task.status,
-        dueDate: task.dueDate,
-        estimatedMinutes: task.estimatedMinutes,
-        evidenceIdsJson: stringifyJson(task.evidenceIds ?? []),
-        dependencyIdsJson: stringifyJson(task.dependencyIds ?? []),
-        sortOrder: index,
+        title: item.task.title,
+        description: item.task.description,
+        priority: item.task.priority,
+        status: item.task.status,
+        dueDate: item.task.dueDate,
+        estimatedMinutes: item.task.estimatedMinutes,
+        evidenceIdsJson: stringifyJson(item.task.evidenceIds ?? []),
+        dependencyIdsJson: stringifyJson(dependencyIds),
+        sortOrder: item.sortOrder,
       })
       .run();
-
-    if (task.subtasks?.length) {
-      insertTasks(task.subtasks, planId, taskId, idMap);
-    }
-  });
+  }
 }
 
 export function deletePlan(planId: string) {

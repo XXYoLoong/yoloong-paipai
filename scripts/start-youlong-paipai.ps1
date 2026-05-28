@@ -7,9 +7,14 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $ProjectRoot
 $LogDir = Join-Path $ProjectRoot "logs"
 $LogPath = Join-Path $LogDir "startup.log"
+$StatusPath = Join-Path $LogDir "startup-status.txt"
 $FallbackLogPath = Join-Path $LogDir ("startup-fallback-{0}-{1}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"), $PID)
 $WebUrl = "http://localhost:3000"
+$SearXngUrl = "http://localhost:8080"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+$script:SearXngReady = $false
+$script:SearXngMessage = "尚未检测"
 
 function Add-StartupLog {
   param([string[]]$Value)
@@ -30,12 +35,47 @@ function Add-StartupLog {
   }
 }
 
+function Write-StartupStatus {
+  param([string[]]$Lines)
+  try {
+    Set-Content -LiteralPath $StatusPath -Value $Lines -Encoding utf8
+  } catch {
+  }
+}
+
 function Test-WebReady {
-  param([string]$Url)
+  param(
+    [string]$Url,
+    [int]$Retries = 3,
+    [int]$TimeoutSec = 5
+  )
+
+  for ($attempt = 0; $attempt -lt $Retries; $attempt++) {
+    try {
+      $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSec
+      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+        return $true
+      }
+    } catch {
+    }
+    if ($attempt -lt ($Retries - 1)) {
+      Start-Sleep -Seconds 1
+    }
+  }
+
+  return $false
+}
+
+function Test-DevServerRunning {
+  param([string]$Url = $WebUrl)
+
+  if (Test-WebReady $Url) {
+    return $true
+  }
 
   try {
-    $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
-    return ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500)
+    $health = Invoke-RestMethod -Uri "$Url/api/tools/health" -TimeoutSec 8
+    return [bool]$health.generatedAt
   } catch {
     return $false
   }
@@ -47,9 +87,191 @@ function Write-Step {
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function Write-Banner {
+  param(
+    [string]$Title,
+    [string[]]$Lines,
+    [string]$Color = "Yellow"
+  )
+
+  Write-Host ""
+  Write-Host ("=" * 72) -ForegroundColor $Color
+  Write-Host $Title -ForegroundColor $Color
+  Write-Host ("=" * 72) -ForegroundColor $Color
+  foreach ($line in $Lines) {
+    Write-Host $line -ForegroundColor $Color
+  }
+  Write-Host ("=" * 72) -ForegroundColor $Color
+  Write-Host ""
+}
+
 function Test-Command {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Resolve-DockerExecutable {
+  $command = Get-Command docker -ErrorAction SilentlyContinue
+  if ($command -and $command.Source) {
+    return $command.Source
+  }
+
+  $candidates = @(
+    (Join-Path $env:ProgramFiles "Docker\Docker\resources\bin\docker.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Docker\Docker\resources\bin\docker.exe")
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  return $null
+}
+
+function Invoke-DockerCommand {
+  param(
+    [string]$DockerExe,
+    [string[]]$Arguments
+  )
+
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $DockerExe @Arguments 2>&1 | Out-Null
+    return $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+}
+
+function Test-DockerDaemon {
+  param([string]$DockerExe)
+
+  return (Invoke-DockerCommand $DockerExe @("info")) -eq 0
+}
+
+function Start-DockerDesktop {
+  $desktopExe = Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"
+  if (-not (Test-Path $desktopExe)) {
+    return $false
+  }
+
+  Write-Host "正在启动 Docker Desktop，请等待引擎就绪…" -ForegroundColor Yellow
+  Start-Process -FilePath $desktopExe | Out-Null
+  return $true
+}
+
+function Wait-DockerDaemon {
+  param(
+    [string]$DockerExe,
+    [int]$TimeoutSec = 120
+  )
+
+  for ($i = 0; $i -lt $TimeoutSec; $i++) {
+    if (Test-DockerDaemon $DockerExe) {
+      return $true
+    }
+    if ($i -gt 0 -and ($i % 10) -eq 0) {
+      Write-Host "仍在等待 Docker 引擎… ($i/$TimeoutSec 秒)" -ForegroundColor DarkYellow
+    }
+    Start-Sleep -Seconds 1
+  }
+
+  return $false
+}
+
+function Test-SearXngReady {
+  try {
+    $url = "$SearXngUrl/search?q=youlong-paipai-health&format=json"
+    $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 4
+    return $response.StatusCode -eq 200
+  } catch {
+    return $false
+  }
+}
+
+function Start-SearXngService {
+  param([string]$DockerExe)
+
+  Write-Host "正在启动 SearXNG 容器（docker compose up -d searxng）…" -ForegroundColor Cyan
+  $exitCode = Invoke-DockerCommand $DockerExe @("compose", "up", "-d", "searxng")
+  if ($exitCode -ne 0) {
+    return "docker compose 启动失败，退出码 $exitCode"
+  }
+
+  for ($i = 0; $i -lt 45; $i++) {
+    if (Test-SearXngReady) {
+      return $null
+    }
+    if ($i -gt 0 -and ($i % 5) -eq 0) {
+      Write-Host "等待 SearXNG 就绪… ($i/45 秒)" -ForegroundColor DarkYellow
+    }
+    Start-Sleep -Seconds 1
+  }
+
+  return "容器已启动，但 $SearXngUrl 仍无 JSON 响应"
+}
+
+function Ensure-SearXngReady {
+  $dockerExe = Resolve-DockerExecutable
+  if (-not $dockerExe) {
+    $script:SearXngMessage = "未安装 Docker Desktop，无法启动联网搜索。"
+    Write-Banner "联网搜索未就绪" @(
+      "未找到 docker 命令，也未在 Program Files 中发现 Docker Desktop。"
+      "请安装 Docker Desktop 后重新运行 start-youlong-paipai.bat。"
+      "在未安装 Docker 时，仍可本地拆解计划，但无法联网查询公开资料。"
+    ) "Red"
+    return $false
+  }
+
+  Write-Host "已找到 Docker：$dockerExe" -ForegroundColor Green
+
+  if (-not (Test-DockerDaemon $dockerExe)) {
+    if (-not (Start-DockerDesktop)) {
+      $script:SearXngMessage = "Docker Desktop 未运行且无法自动启动。"
+      Write-Banner "Docker 未运行" @(
+        "请先手动打开 Docker Desktop，等待 Engine running 后再重新双击启动脚本。"
+      ) "Red"
+      return $false
+    }
+
+    if (-not (Wait-DockerDaemon $dockerExe 120)) {
+      $script:SearXngMessage = "Docker Desktop 启动超时（120 秒）。"
+      Write-Banner "Docker 启动超时" @(
+        "Docker Desktop 已尝试启动，但 120 秒内引擎仍未就绪。"
+        "请打开 Docker Desktop 查看是否卡在初始化/WSL，就绪后重新运行 bat。"
+      ) "Red"
+      return $false
+    }
+  }
+
+  Write-Host "Docker 引擎已就绪。" -ForegroundColor Green
+
+  if (Test-SearXngReady) {
+    $script:SearXngReady = $true
+    $script:SearXngMessage = "SearXNG 已在运行：$SearXngUrl"
+    Write-Host $script:SearXngMessage -ForegroundColor Green
+    return $true
+  }
+
+  $startError = Start-SearXngService $dockerExe
+  if ($startError) {
+    $script:SearXngMessage = $startError
+    Write-Banner "SearXNG 启动失败" @(
+      $startError
+      "请执行：docker compose logs searxng"
+      "网页首页会显示黄色提示；设置页健康检查也会标红/黄。"
+      "修复前勾选「启用本地 SearXNG 搜索」只会降级，无法真正联网。"
+    ) "Red"
+    return $false
+  }
+
+  $script:SearXngReady = $true
+  $script:SearXngMessage = "SearXNG 已启动并就绪：$SearXngUrl"
+  Write-Host $script:SearXngMessage -ForegroundColor Green
+  return $true
 }
 
 function Open-WebWhenReady {
@@ -146,16 +368,36 @@ if ([string]::IsNullOrWhiteSpace($model)) {
 }
 Use-LocalEnv "DEEPSEEK_HIGH_QUALITY_MODEL" "deepseek-v4-pro" | Out-Null
 
-$env:SEARXNG_URL = "http://localhost:8080"
+$env:SEARXNG_URL = $SearXngUrl
 $env:DATABASE_URL = "file:./data/youlong.sqlite"
 
+Write-Step "启动 Docker 与本地 SearXNG（联网搜索必需）"
+$searxngOk = Ensure-SearXngReady
+
+Write-StartupStatus @(
+  "generatedAt=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+  "searxngReady=$searxngOk"
+  "searxngMessage=$script:SearXngMessage"
+  "webUrl=$WebUrl"
+)
+
 Write-Step "检查 Web 服务状态"
-if (Test-WebReady $WebUrl) {
+if (Test-DevServerRunning $WebUrl) {
   Write-Host "Web 服务已经在运行：$WebUrl" -ForegroundColor Green
+  if (-not $searxngOk) {
+    Write-Banner "提醒：联网搜索未就绪" @(
+      $script:SearXngMessage
+      "网页首页顶部会显示黄色/红色提示条。"
+      "请修复 Docker/SearXNG 后再勾选「启用本地 SearXNG 搜索」。"
+    ) "Yellow"
+  } else {
+    Write-Host "联网搜索状态：$script:SearXngMessage" -ForegroundColor Green
+  }
   Write-Host "正在打开浏览器。关闭此窗口不会停止已经运行的服务。" -ForegroundColor Green
   Start-Process $WebUrl
   Add-StartupLog @(
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Web already running; opened browser."
+    "SearXNG ready: $searxngOk"
     "Url: $WebUrl"
     ""
   )
@@ -178,31 +420,24 @@ if (-not (Test-Command "pnpm")) {
 Write-Step "安装/校验前端依赖"
 pnpm install
 
-Write-Step "启动本地 SearXNG"
-if (Test-Command "docker") {
-  try {
-    docker compose up -d searxng
-    if ($LASTEXITCODE -eq 0) {
-      Write-Host "SearXNG 已启动：http://localhost:8080" -ForegroundColor Green
-    } else {
-      Write-Host "SearXNG 未能启动。请确认 Docker Desktop 已启动；Web 会继续启动，但联网搜索不可用。" -ForegroundColor Yellow
-    }
-  } catch {
-    Write-Host "Docker 已安装但 SearXNG 启动失败。请确认 Docker Desktop 已启动。" -ForegroundColor Yellow
-    Write-Host $_.Exception.Message -ForegroundColor Yellow
-  }
-} else {
-  Write-Host "未检测到 docker。将继续启动 Web，但联网搜索不可用。" -ForegroundColor Yellow
-}
-
 Write-Step "启动 Next.js 开发服务"
 Write-Host "Web 地址：$WebUrl" -ForegroundColor Green
-Write-Host "SearXNG 地址：http://localhost:8080" -ForegroundColor Green
+Write-Host "SearXNG 地址：$SearXngUrl" -ForegroundColor Green
+if ($searxngOk) {
+  Write-Host "联网搜索：已就绪，可在首页勾选 SearXNG 后生成计划。" -ForegroundColor Green
+} else {
+  Write-Banner "联网搜索未就绪（Web 仍会启动）" @(
+    $script:SearXngMessage
+    "首页会显示明显提示条；未修复前只能本地拆解，无法联网查资料。"
+    "状态文件：$StatusPath"
+  ) "Yellow"
+}
 Write-Host "按 Ctrl+C 可停止 Web 服务。"
 Write-Host "浏览器会在 Web 服务就绪后自动打开。" -ForegroundColor Green
 Open-WebWhenReady $WebUrl
 Add-StartupLog @(
   "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting Next.js dev server."
+  "SearXNG ready: $searxngOk"
   "Url: $WebUrl"
   ""
 )
@@ -212,6 +447,7 @@ pnpm dev
   Write-Host ""
   Write-Host "启动失败：$($_.Exception.Message)" -ForegroundColor Red
   Write-Host "日志位置：$LogPath" -ForegroundColor Yellow
+  Write-Host "状态文件：$StatusPath" -ForegroundColor Yellow
   Add-StartupLog @(
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Startup failed."
     "Reason: $($_.Exception.Message)"

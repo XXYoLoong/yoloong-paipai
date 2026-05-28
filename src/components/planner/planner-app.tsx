@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from "@/components/ui/field";
 import { TaskBoard } from "@/components/planner/task-board";
 import { TemplatePicker } from "@/components/planner/template-picker";
+import { SearchStatusBanner } from "@/components/planner/search-status-banner";
 import { detectSensitiveInput } from "@/lib/agent/heuristics";
 import type { StageLogEntry } from "@/lib/types";
 
@@ -80,6 +81,14 @@ export function PlannerApp({
     control: form.control,
     name: "qualityMode",
   });
+  const enableSearch = useWatch({
+    control: form.control,
+    name: "enableSearch",
+  });
+  const memoryMode = useWatch({
+    control: form.control,
+    name: "memoryMode",
+  });
 
   function buildPayload(values: FormValues) {
     return {
@@ -116,11 +125,7 @@ export function PlannerApp({
         setGenerated(streamed);
         return;
       }
-    } catch {
-      // fallback below
-    }
 
-    try {
       const response = await fetch("/api/plans/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -166,7 +171,7 @@ export function PlannerApp({
       for (const part of parts) {
         const line = part.trim();
         if (!line.startsWith("data:")) continue;
-        const json = JSON.parse(line.replace(/^data:\s*/, "")) as {
+        let json: {
           type: string;
           stage?: string;
           status?: string;
@@ -176,6 +181,11 @@ export function PlannerApp({
           stageLog?: StageLogEntry[];
           warnings?: string[];
         };
+        try {
+          json = JSON.parse(line.replace(/^data:\s*/, "")) as typeof json;
+        } catch {
+          continue;
+        }
 
         if (json.type === "stage" && json.stage && json.status && json.message) {
           const entry = { stage: json.stage, status: json.status, message: json.message } as StageLogEntry;
@@ -216,14 +226,16 @@ export function PlannerApp({
           </div>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          <Link href="/history">
-            <Button type="button" variant="secondary">历史计划</Button>
-          </Link>
-          <Link href="/settings">
-            <Button type="button" variant="ghost">设置</Button>
-          </Link>
+          <Button href="/history" variant="secondary">
+            历史计划
+          </Button>
+          <Button href="/settings" variant="ghost">
+            设置
+          </Button>
         </nav>
       </header>
+
+      <SearchStatusBanner />
 
       <main className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_1fr]">
         <Card>
@@ -261,7 +273,8 @@ export function PlannerApp({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="deadline">截止时间</FieldLabel>
-                    <Input id="deadline" placeholder="如 2026-06-30" {...form.register("deadline")} />
+                    <Input id="deadline" type="date" placeholder="如 2026-06-30" {...form.register("deadline")} />
+                    <FieldDescription>填写后，系统会把日期自动分摊到各任务的 dueDate，并在「时间轴与依赖」中展示。</FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="budget">预算</FieldLabel>
@@ -286,7 +299,12 @@ export function PlannerApp({
 
                 <div className="grid gap-3 rounded-lg bg-slate-50 p-3">
                   <label className="flex items-center gap-3 text-sm font-medium text-slate-800">
-                    <input className="size-4 accent-teal-700" type="checkbox" {...form.register("enableSearch")} />
+                    <input
+                      className="size-4 accent-teal-700"
+                      type="checkbox"
+                      checked={enableSearch}
+                      onChange={(event) => form.setValue("enableSearch", event.currentTarget.checked)}
+                    />
                     启用本地 SearXNG 搜索
                   </label>
                   <label className="flex items-center gap-3 text-sm font-medium text-slate-800">
@@ -302,8 +320,8 @@ export function PlannerApp({
                     <input
                       className="size-4 accent-teal-700"
                       type="checkbox"
-                      checked={form.getValues("memoryMode") === "on"}
-                      onChange={(e) => form.setValue("memoryMode", e.target.checked ? "on" : "off")}
+                      checked={memoryMode === "on"}
+                      onChange={(event) => form.setValue("memoryMode", event.currentTarget.checked ? "on" : "off")}
                     />
                     启用 Agent 记忆检索
                   </label>
@@ -458,12 +476,12 @@ function GeneratedPanel({ response, onPlanChange }: { response: GenerateResponse
           </div>
         </CardContent>
         <CardFooter>
-          <Link href={`/plans/${plan.id}`}>
-            <Button type="button" variant="secondary">打开独立计划页</Button>
-          </Link>
-          <Link href={`/plans/${plan.id}#export`}>
-            <Button type="button" variant="ghost">导出中心</Button>
-          </Link>
+          <Button href={`/plans/${plan.id}`} variant="secondary">
+            打开独立计划页
+          </Button>
+          <Button href={`/plans/${plan.id}#export`} variant="ghost">
+            导出中心
+          </Button>
         </CardFooter>
       </Card>
 

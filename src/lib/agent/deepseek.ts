@@ -6,6 +6,7 @@ import {
   REPAIR_PROMPT_SYSTEM,
   type DeepSeekMessage,
 } from "@/lib/agent/prompts";
+import { parseModelJson } from "@/lib/agent/parse-model-json";
 import { generatedPlanSchema } from "@/lib/schemas";
 import type { EvidenceItem, GeneratedPlan, GoalInput } from "@/lib/types";
 
@@ -43,7 +44,19 @@ export async function generatePlanWithDeepSeek(
     throw new Error("DeepSeek 未返回内容。");
   }
 
-  const firstParse = parseModelJson(content);
+  let firstParse: unknown;
+  try {
+    firstParse = parseModelJson(content);
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : "JSON 解析失败";
+    const repaired = await repairPlanJson(model, content, message, timeoutMs);
+    return {
+      plan: repaired,
+      usage: raw.usage,
+      repaired: true,
+    };
+  }
+
   const firstResult = generatedPlanSchema.safeParse(firstParse);
 
   if (firstResult.success) {
@@ -79,8 +92,16 @@ async function repairPlanJson(model: string, invalidContent: string, errorMessag
   );
 
   const content = raw.choices?.[0]?.message?.content;
-  const parsed = generatedPlanSchema.parse(parseModelJson(content ?? "{}"));
-  return parsed;
+  if (!content?.trim()) {
+    throw new Error("DeepSeek JSON 修复失败：模型未返回内容。");
+  }
+
+  try {
+    return generatedPlanSchema.parse(parseModelJson(content));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "JSON 修复失败";
+    throw new Error(`DeepSeek JSON 修复失败：${reason}`);
+  }
 }
 
 async function callDeepSeek(model: string, messages: DeepSeekMessage[], timeoutMs: number) {
@@ -129,15 +150,4 @@ function formatDeepSeekFetchError(error: unknown, timeoutMs: number) {
   }
 
   return "DeepSeek 请求失败，已切换为本地基础拆解。";
-}
-
-function parseModelJson(content: string) {
-  const trimmed = content.trim();
-  const withoutFence = trimmed
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-
-  return JSON.parse(withoutFence);
 }

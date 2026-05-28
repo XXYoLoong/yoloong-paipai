@@ -78,9 +78,20 @@ async function checkSearxng(): Promise<HealthItem> {
       key: "searxng",
       label: "本地 SearXNG",
       status: "warn",
-      message: error instanceof Error ? `搜索服务暂不可用：${error.message}` : "搜索服务暂不可用。",
+      message: formatSearxngError(error),
     };
   }
+}
+
+function formatSearxngError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("fetch failed") || message.includes("econnrefused") || message.includes("connect")) {
+    return "本地 SearXNG 未连接。请先打开 Docker Desktop，再双击 start-youlong-paipai.bat 启动 searxng 容器（http://localhost:8080）。";
+  }
+  if (message.includes("timeout") || message.includes("aborted")) {
+    return "SearXNG 响应超时。请确认 Docker 容器 youlong-paipai-searxng-1 正在运行。";
+  }
+  return error instanceof Error ? `搜索服务暂不可用：${error.message}` : "搜索服务暂不可用。";
 }
 
 async function checkSqlite(): Promise<HealthItem> {

@@ -48,11 +48,9 @@ export default async function PlanPage({ params }: PageProps) {
             <Badge tone="slate">{new Date(plan.createdAt).toLocaleString("zh-CN")}</Badge>
           </div>
         </div>
-        <a href={`/api/export/${plan.id}?format=md`}>
-          <Button type="button" variant="secondary">
-            快速导出 Markdown
-          </Button>
-        </a>
+        <Button href={`/api/export/${plan.id}?format=md`} variant="secondary">
+          快速导出 Markdown
+        </Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">

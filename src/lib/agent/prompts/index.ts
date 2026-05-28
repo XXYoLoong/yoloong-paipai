@@ -34,6 +34,14 @@ export function buildPlanMessages(
     "不要编造实时价格、开放时间、政策或数据；没有证据时写成待确认任务。",
   ];
 
+  if (input.deadline?.trim()) {
+    systemParts.push(
+      `用户已提供目标截止时间 ${input.deadline.trim()}。每个主任务必须包含 dueDate（YYYY-MM-DD），按执行顺序从今天起递增，且不得早于今天、不得晚于该日期。`,
+    );
+  } else {
+    systemParts.push("若未提供目标 deadline，dueDate 可留空字符串。");
+  }
+
   if (memoryContext) {
     systemParts.push(`用户历史记忆（生成时请参考并在 summary 末尾简要说明依据）：\n${memoryContext}`);
   }

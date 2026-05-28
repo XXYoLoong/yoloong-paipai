@@ -40,6 +40,11 @@ const priorityLabels: Record<TaskPriority, string> = {
 
 export function TaskBoard({ plan, onPlanChange }: { plan: PlanWithTasks; onPlanChange?: (plan: PlanWithTasks) => void }) {
   const [currentPlan, setCurrentPlan] = React.useState(plan);
+  const dragEnabled = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const tasksByParent = React.useMemo(() => groupTasksByParent(currentPlan.tasks), [currentPlan.tasks]);
   const rootTasks = React.useMemo(() => tasksByParent.get(undefined) ?? [], [tasksByParent]);
   const [orderedTaskIds, setOrderedTaskIds] = React.useState<string[]>([]);
@@ -109,30 +114,55 @@ export function TaskBoard({ plan, onPlanChange }: { plan: PlanWithTasks; onPlanC
           <CardDescription>支持拖拽排序，点击任务查看详情。</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={orderedTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-col gap-3">
-                {orderedTasks.map((task) => (
-                  <TaskTreeItem
-                    collapsedTaskIds={collapsedTaskIds}
-                    key={task.id}
-                    level={0}
-                    onCreated={refreshPlan}
-                    onSelectTask={setSelectedTaskId}
-                    onStatusChange={async (status) => {
-                      await patchTask(task.id, { status });
-                      await refreshPlan();
-                    }}
-                    onToggleCollapsed={toggleCollapsed}
-                    planId={currentPlan.id}
-                    selectedTaskId={selectedTask?.id}
-                    task={task}
-                    tasksByParent={tasksByParent}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          {dragEnabled ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={orderedTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-3">
+                  {orderedTasks.map((task) => (
+                    <TaskTreeItem
+                      collapsedTaskIds={collapsedTaskIds}
+                      dragEnabled
+                      key={task.id}
+                      level={0}
+                      onCreated={refreshPlan}
+                      onSelectTask={setSelectedTaskId}
+                      onStatusChange={async (status) => {
+                        await patchTask(task.id, { status });
+                        await refreshPlan();
+                      }}
+                      onToggleCollapsed={toggleCollapsed}
+                      planId={currentPlan.id}
+                      selectedTaskId={selectedTask?.id}
+                      task={task}
+                      tasksByParent={tasksByParent}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {orderedTasks.map((task) => (
+                <TaskTreeItem
+                  collapsedTaskIds={collapsedTaskIds}
+                  dragEnabled={false}
+                  key={task.id}
+                  level={0}
+                  onCreated={refreshPlan}
+                  onSelectTask={setSelectedTaskId}
+                  onStatusChange={async (status) => {
+                    await patchTask(task.id, { status });
+                    await refreshPlan();
+                  }}
+                  onToggleCollapsed={toggleCollapsed}
+                  planId={currentPlan.id}
+                  selectedTaskId={selectedTask?.id}
+                  task={task}
+                  tasksByParent={tasksByParent}
+                />
+              ))}
+            </div>
+          )}
           <ManualTaskForm planId={currentPlan.id} onCreated={refreshPlan} />
         </CardContent>
       </Card>
@@ -146,6 +176,7 @@ function TaskTreeItem({
   task,
   tasksByParent,
   collapsedTaskIds,
+  dragEnabled,
   level,
   planId,
   selectedTaskId,
@@ -157,6 +188,7 @@ function TaskTreeItem({
   task: StoredTask;
   tasksByParent: Map<string | undefined, StoredTask[]>;
   collapsedTaskIds: Set<string>;
+  dragEnabled: boolean;
   level: number;
   planId: string;
   selectedTaskId?: string;
@@ -171,7 +203,7 @@ function TaskTreeItem({
 
   return (
     <div className={cn("flex flex-col gap-2", level > 0 && "ml-5 border-l border-slate-200 pl-3")}>
-      {level === 0 ? (
+      {level === 0 && dragEnabled ? (
         <SortableTaskItem
           childCount={childTasks.length}
           isCollapsed={isCollapsed}
@@ -198,6 +230,7 @@ function TaskTreeItem({
           {childTasks.map((child) => (
             <TaskTreeItem
               collapsedTaskIds={collapsedTaskIds}
+              dragEnabled={dragEnabled}
               key={child.id}
               level={level + 1}
               onCreated={onCreated}
@@ -411,6 +444,7 @@ function TaskDetail({
             <div className="flex flex-wrap gap-2">
               <Badge tone={task.status === "done" ? "teal" : task.status === "doing" ? "indigo" : "slate"}>{statusLabels[task.status]}</Badge>
               <Badge tone={task.priority === "high" ? "rose" : task.priority === "medium" ? "amber" : "slate"}>优先级 {priorityLabels[task.priority]}</Badge>
+              {task.dueDate ? <Badge tone="indigo">截止 {task.dueDate}</Badge> : <Badge tone="slate">未设截止</Badge>}
               {task.estimatedMinutes ? <Badge tone="slate">{task.estimatedMinutes} 分钟</Badge> : null}
             </div>
             <p className="text-sm leading-7 text-slate-700">{task.description}</p>
@@ -477,6 +511,7 @@ function TaskEditForm({
   const [description, setDescription] = React.useState(task.description);
   const [priority, setPriority] = React.useState<TaskPriority>(task.priority);
   const [status, setStatus] = React.useState<TaskStatus>(task.status);
+  const [dueDate, setDueDate] = React.useState(task.dueDate ?? "");
   const [dependencyIds, setDependencyIds] = React.useState<string[]>(task.dependencyIds ?? []);
 
   const dependencyOptions = allTasks.filter((item) => item.id !== task.id);
@@ -491,6 +526,7 @@ function TaskEditForm({
       description,
       priority,
       status,
+      dueDate: dueDate.trim() ? dueDate : null,
       dependencyIds,
     });
     await onSaved();
@@ -524,6 +560,10 @@ function TaskEditForm({
           </select>
         </Field>
       </div>
+      <Field>
+        <FieldLabel>任务截止时间</FieldLabel>
+        <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+      </Field>
       <Field>
         <FieldLabel>前置依赖任务</FieldLabel>
         <div className="flex max-h-32 flex-col gap-1 overflow-auto rounded-md border border-slate-200 p-2">
