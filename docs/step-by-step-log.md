@@ -63,3 +63,9 @@
 - Verification update: `pnpm typecheck`、`pnpm lint`、`pnpm check:submit` 已通过；下一步执行生产构建和运行期冒烟验证。
 - Runtime fix: Next 16 已将中间层约定迁移为 `proxy.ts`，且当前项目使用 `src/app`，因此访问保护入口需放在 `src/proxy.ts`；已从根目录旧入口迁移并重新构建确认出现 `ƒ Proxy (Middleware)`。
 - Final verification: `pnpm typecheck`、`pnpm lint`、`pnpm check:submit`、`pnpm build` 均通过。运行期验证：未配置有效 `APP_ACCESS_PASSWORD_HASH` 时首页 200 且健康检查 auth 为 warn；配置测试 hash 后未登录首页返回 307 到 `/login?next=%2F`，未登录 `/api/tools/health` 返回 401，登录接口返回 `youlong_session` cookie 且首页 200。
+
+### 2026-05-29 Round 1
+- Request received: 对照二期开发功能表检查除演示视频与上云部署外的完成情况，并保存 Git 进度。
+- Audit method: 读取 `游龙排排_V2.0_二期开发功能表.xlsx` 全表，与 `src/`、`docs/`、`scripts/` 逐项核对。
+- Completion summary: 16 项可判定功能中已完成 5 项（F-04、F-06、F-10、F-13、F-18）；未完成 11 项；F-14/F-15 按用户要求排除。M1 里程碑 5/6 有代码交付，缺 F-16 测试体系。
+- Deliverable: 新增 `docs/phase2-completion-audit.md` 作为对照审计记录并提交 Git。
