@@ -2,7 +2,7 @@
 
 基于 `Next.js App Router + React 19 + TypeScript` 的智能任务规划器。用户输入复杂目标后，系统会通过轻量 Agent 状态机拆解任务，按需调用本地 SearXNG 查询公开信息，再生成可编辑、可拖拽、可导出的 To-do List。
 
-**仓库**：https://github.com/XXYoLoong/youlong-paipai
+**仓库**：https://github.com/XXYoLoong/yolong-paipai
 
 ## 技术栈
 
