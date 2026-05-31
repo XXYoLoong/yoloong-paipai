@@ -19,13 +19,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="panel-elevated w-full max-w-md rounded-xl p-6">
         <div className="flex items-start gap-4">
-          <div className="flex size-11 items-center justify-center rounded-lg bg-teal-700 text-white">
-            <LockKeyhole aria-hidden="true" />
+          <div className="flex size-11 items-center justify-center rounded-xl border border-teal-400/30 bg-teal-500/10 text-teal-300">
+            <LockKeyhole aria-hidden="true" className="size-5" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-normal text-slate-950">访问保护</h1>
+            <span className="kicker">Access Gate</span>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">访问保护</h1>
             <p className="mt-1 text-sm leading-6 text-slate-500">
               该演示环境已启用访问密码，登录后即可使用游龙排排。
             </p>

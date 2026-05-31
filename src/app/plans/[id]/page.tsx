@@ -7,7 +7,9 @@ import { PlanReviewPanel } from "@/components/planner/plan-review-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeaderControls } from "@/components/system/header-controls";
 import { getLatestAgentRun, getPlan } from "@/lib/db/queries";
+import { formatStoredDateTime } from "@/lib/utils";
 
 type PageProps = {
   params: Promise<{
@@ -34,23 +36,27 @@ export default async function PlanPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-start lg:justify-between">
+      <header className="panel-elevated flex flex-col gap-4 rounded-xl px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-col gap-2">
-          <Link className="text-sm font-medium text-teal-700 hover:text-teal-900" href="/">
-            返回首页
+          <Link className="inline-flex w-fit items-center gap-1 text-sm font-medium text-teal-700 transition hover:text-teal-900" href="/">
+            ← 返回首页
           </Link>
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">{plan.title}</h1>
+          <span className="kicker">Mission Board</span>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{plan.title}</h1>
           <p className="max-w-3xl text-sm leading-6 text-slate-500">{plan.summary}</p>
           <div className="flex flex-wrap gap-2">
             <Badge tone="teal">{plan.goalType}</Badge>
-            <Badge tone="indigo">{plan.tasks.length} 个任务</Badge>
+            <Badge tone="indigo"><span className="meta-mono">{plan.tasks.length}</span> 个任务</Badge>
             {plan.promptVersion ? <Badge tone="slate">Prompt {plan.promptVersion}</Badge> : null}
-            <Badge tone="slate">{new Date(plan.createdAt).toLocaleString("zh-CN")}</Badge>
+            <Badge tone="slate"><span className="meta-mono">{formatStoredDateTime(plan.createdAt)}</span></Badge>
           </div>
         </div>
-        <Button href={`/api/export/${plan.id}?format=md`} variant="secondary">
-          快速导出 Markdown
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button href={`/api/export/${plan.id}?format=md`} variant="secondary">
+            快速导出 Markdown
+          </Button>
+          <HeaderControls />
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">

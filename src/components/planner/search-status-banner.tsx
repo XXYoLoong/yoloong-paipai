@@ -37,7 +37,8 @@ export function SearchStatusBanner() {
   }, []);
 
   React.useEffect(() => {
-    void refresh();
+    const id = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(id);
   }, [refresh]);
 
   if (searchStatus.status === "loading") {
@@ -75,7 +76,7 @@ export function SearchStatusBanner() {
           <p className="mt-2">{searchStatus.message}</p>
           <ul className="mt-3 list-disc space-y-1 pl-5">
             <li>请先打开 Docker Desktop，等待左下角显示 Engine running。</li>
-            <li>重新双击项目根目录的 <code className="rounded bg-white/70 px-1">start-youlong-paipai.bat</code> 一键启动。</li>
+            <li>重新双击项目根目录的 <code className="meta-mono rounded bg-canvas/60 px-1 text-slate-200">start-youlong-paipai.bat</code> 一键启动。</li>
             <li>启动窗口若出现黄色/红色 SearXNG 提示，按提示处理后再生成计划。</li>
             <li>也可在设置页运行「工具健康检查」，确认 SearXNG 为绿色「正常」。</li>
           </ul>

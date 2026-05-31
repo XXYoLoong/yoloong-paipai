@@ -42,7 +42,7 @@ export function Tabs({
 }
 
 export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("inline-flex rounded-md bg-slate-100 p-1", className)} role="tablist" {...props} />;
+  return <div className={cn("inline-flex rounded-lg border border-hairline bg-canvas/50 p-1", className)} role="tablist" {...props} />;
 }
 
 export function TabsTrigger({
@@ -59,8 +59,8 @@ export function TabsTrigger({
       role="tab"
       aria-selected={selected}
       className={cn(
-        "h-8 rounded px-3 text-sm font-medium text-slate-600 transition hover:text-slate-950",
-        selected && "bg-white text-slate-950 shadow-sm",
+        "h-8 rounded-md px-3 text-sm font-medium text-slate-500 transition hover:text-slate-950",
+        selected && "bg-surface-3 text-slate-950 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]",
         className,
       )}
       onClick={() => context?.setValue(value)}

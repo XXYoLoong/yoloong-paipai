@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -8,7 +9,10 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 function canLoadBetterSqlite3() {
   try {
-    require("better-sqlite3");
+    const Database = require("better-sqlite3");
+    const sqlite = new Database(":memory:");
+    sqlite.prepare("select 1").get();
+    sqlite.close();
     return true;
   } catch (error) {
     const message = String(error?.message ?? error);
@@ -21,10 +25,18 @@ function canLoadBetterSqlite3() {
 
 function rebuildBetterSqlite3() {
   console.log(`better-sqlite3 与 Node ${process.version} 不兼容，正在重新编译…`);
-  const result = spawnSync("pnpm", ["rebuild", "better-sqlite3"], {
+  const packageRoot = path.dirname(require.resolve("better-sqlite3/package.json"));
+  rmSync(path.join(packageRoot, "build"), { recursive: true, force: true });
+
+  const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const result = spawnSync(pnpmCommand, ["rebuild", "better-sqlite3"], {
     cwd: projectRoot,
+    env: {
+      ...process.env,
+      PATH: `${path.dirname(process.execPath)}${path.delimiter}${process.env.PATH ?? ""}`,
+      npm_config_node_execpath: process.execPath,
+    },
     stdio: "inherit",
-    shell: true,
   });
   if (result.status !== 0) {
     console.error("pnpm rebuild better-sqlite3 失败。");

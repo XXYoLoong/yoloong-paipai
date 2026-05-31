@@ -47,7 +47,9 @@ describe("normalizePlanSchedule", () => {
 
     expect(plan.tasks[0]?.dueDate).toMatch(/^2026-/);
     expect(plan.tasks[1]?.dueDate).toMatch(/^2026-/);
-    expect(plan.tasks[0]?.dueDate! <= plan.tasks[1]?.dueDate!).toBe(true);
+    const firstDue = plan.tasks[0]?.dueDate ?? "";
+    const secondDue = plan.tasks[1]?.dueDate ?? "";
+    expect(firstDue <= secondDue).toBe(true);
   });
 
   it("overrides past model due dates when deadline is provided", () => {

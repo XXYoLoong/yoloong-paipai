@@ -65,7 +65,8 @@ export function HealthCheckPanel() {
   }, []);
 
   React.useEffect(() => {
-    void runCheck();
+    const id = window.setTimeout(() => void runCheck(), 0);
+    return () => window.clearTimeout(id);
   }, [runCheck]);
 
   const searxngCheck = health?.checks.find((item) => item.key === "searxng");
@@ -96,7 +97,7 @@ export function HealthCheckPanel() {
             <div className="font-semibold">联网搜索未就绪</div>
             <p className="mt-2">{searxngCheck.message}</p>
             <p className="mt-2">
-              请打开 Docker Desktop → 重新运行 <code className="rounded bg-white/80 px-1">start-youlong-paipai.bat</code> → 确认本页 SearXNG 变为「正常」后再勾选首页搜索。
+              请打开 Docker Desktop → 重新运行 <code className="meta-mono rounded bg-canvas/60 px-1 text-slate-200">start-youlong-paipai.bat</code> → 确认本页 SearXNG 变为「正常」后再勾选首页搜索。
             </p>
           </div>
         ) : null}

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel, Input } from "@/components/ui/field";
+import { formatStoredDate } from "@/lib/utils";
 
 type PlanListItem = {
   id: string;
@@ -107,7 +108,7 @@ export function HistoryClient({ initialPlans }: { initialPlans: PlanListItem[] }
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Badge tone="teal">{plan.goalType}</Badge>
                       <Badge>{plan.status}</Badge>
-                      <Badge>{new Date(plan.createdAt).toLocaleDateString("zh-CN")}</Badge>
+                      <Badge>{formatStoredDate(plan.createdAt)}</Badge>
                     </div>
                   </Link>
                   <div className="flex flex-wrap gap-2">

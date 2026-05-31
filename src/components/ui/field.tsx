@@ -22,7 +22,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100",
+        "h-10 rounded-md border border-hairline bg-canvas/60 px-3 text-sm text-slate-950 placeholder:text-slate-500 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25",
         props.className,
       )}
     />
@@ -34,7 +34,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...props}
       className={cn(
-        "min-h-32 resize-y rounded-md border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100",
+        "min-h-32 resize-y rounded-md border border-hairline bg-canvas/60 px-3 py-3 text-sm leading-6 text-slate-950 placeholder:text-slate-500 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25",
         props.className,
       )}
     />

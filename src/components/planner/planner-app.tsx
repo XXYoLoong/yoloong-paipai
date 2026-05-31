@@ -7,7 +7,7 @@ import { ArrowRight, CalendarDays, CheckCircle2, CircleDashed, Loader2, Search, 
 import Link from "next/link";
 import { z } from "zod";
 import type { GoalTemplate, PlanWithTasks } from "@/lib/types";
-import { toCommaList } from "@/lib/utils";
+import { cn, toCommaList } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from
 import { TaskBoard } from "@/components/planner/task-board";
 import { TemplatePicker } from "@/components/planner/template-picker";
 import { SearchStatusBanner } from "@/components/planner/search-status-banner";
+import { HeaderControls } from "@/components/system/header-controls";
 import { detectSensitiveInput } from "@/lib/agent/heuristics";
 import type { StageLogEntry } from "@/lib/types";
 
@@ -213,13 +214,19 @@ export function PlannerApp({
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <header className="panel-elevated flex flex-col gap-4 rounded-xl px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex size-12 items-center justify-center rounded-lg bg-teal-700 text-white">
-            <Sparkles aria-hidden="true" />
+          <div className="relative flex size-12 items-center justify-center rounded-xl border border-teal-400/30 bg-teal-500/10 text-teal-300">
+            <Sparkles aria-hidden="true" className="size-5" />
           </div>
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-normal text-slate-950">游龙排排</h1>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="kicker">Agentic Planner</span>
+              <span className="status-dot" aria-hidden="true" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              <span className="accent-gradient">游龙排排</span>
+            </h1>
             <p className="max-w-2xl text-sm leading-6 text-slate-500">
               输入复杂目标，Agent 拆解步骤、查询必要信息，并生成可编辑的待办清单。
             </p>
@@ -232,6 +239,7 @@ export function PlannerApp({
           <Button href="/settings" variant="ghost">
             设置
           </Button>
+          <HeaderControls />
         </nav>
       </header>
 
@@ -368,7 +376,7 @@ export function PlannerApp({
               <CardContent className="flex flex-col gap-3">
                 {examples.map((example) => (
                   <button
-                    className="rounded-lg border border-slate-200 bg-white p-4 text-left text-sm leading-6 text-slate-700 transition hover:border-teal-300 hover:bg-teal-50"
+                    className="group rounded-lg border border-hairline bg-surface-2 p-4 text-left text-sm leading-6 text-slate-700 transition hover:border-teal-400/50 hover:bg-teal-500/5 hover:text-slate-950"
                     key={example}
                     type="button"
                     onClick={() => form.setValue("goal", example)}
@@ -404,9 +412,9 @@ export function PlannerApp({
 
 function InfoStrip({ icon: Icon, title, description }: { icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; title: string; description: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex size-10 items-center justify-center rounded-md bg-slate-100 text-teal-700">
-        <Icon aria-hidden={true} />
+    <div className="flex items-center gap-3 rounded-xl border border-hairline bg-surface-2 p-4">
+      <div className="flex size-10 items-center justify-center rounded-lg border border-hairline bg-canvas/50 text-teal-300">
+        <Icon aria-hidden={true} className="size-[18px]" />
       </div>
       <div>
         <div className="text-sm font-semibold text-slate-950">{title}</div>
@@ -419,24 +427,46 @@ function InfoStrip({ icon: Icon, title, description }: { icon: React.ComponentTy
 function GeneratingPanel({ stages, warnings }: { stages: StageLogEntry[]; warnings: string[] }) {
   const fallback = ["理解目标", "规划搜索", "查询资料", "生成任务", "校验保存"];
 
+  const items = stages.length
+    ? stages
+    : fallback.map((label) => ({ stage: label, status: "pending" as const, message: label }));
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Agent 正在排排（SSE 实时）</CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="status-dot" aria-hidden="true" />
+          <CardTitle>Agent 正在排排（SSE 实时）</CardTitle>
+        </div>
         <CardDescription>这通常会在一分钟内完成；失败时自动回退同步接口。</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {warnings.length ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{warnings.join("；")}</div>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(stages.length ? stages : fallback.map((label) => ({ stage: label, status: "done" as const, message: label }))).map((stage) => (
-            <div className="flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600" key={`${stage.stage}-${stage.message}`}>
-              {stages.length ? <CheckCircle2 className="text-teal-700" aria-hidden="true" /> : <CircleDashed className="animate-spin" aria-hidden="true" />}
-              {stage.message}
-            </div>
-          ))}
-        </div>
+        <ol className="relative ml-2 flex flex-col gap-2.5 border-l border-hairline pl-6">
+          {items.map((stage, index) => {
+            const live = stages.length > 0;
+            return (
+              <li className="relative flex items-start gap-3 rounded-md bg-surface-2 p-3 text-sm text-slate-600" key={`${stage.stage}-${stage.message}`}>
+                <span
+                  className={cn(
+                    "absolute -left-[31px] top-4 flex size-3 items-center justify-center rounded-full ring-4 ring-canvas",
+                    live ? "bg-teal-400" : "bg-slate-500",
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="meta-mono mt-0.5 text-xs text-slate-500">{String(index + 1).padStart(2, "0")}</span>
+                {live ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal-700" aria-hidden="true" />
+                ) : (
+                  <CircleDashed className="mt-0.5 size-4 shrink-0 animate-spin text-slate-500" aria-hidden="true" />
+                )}
+                <span className="leading-6">{stage.message}</span>
+              </li>
+            );
+          })}
+        </ol>
       </CardContent>
     </Card>
   );

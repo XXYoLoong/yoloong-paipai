@@ -286,7 +286,7 @@ function SortableTaskItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-lg border bg-white p-3 text-left shadow-sm transition",
+        "grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-lg border bg-surface-2 p-3 text-left transition",
         isSelected ? "border-teal-400 ring-2 ring-teal-100" : "border-slate-200 hover:border-slate-300",
       )}
     >
@@ -348,7 +348,7 @@ function NestedTaskItem({
   return (
     <div
       className={cn(
-        "grid grid-cols-[1fr_auto] items-start gap-3 rounded-lg border bg-white p-3 text-left transition",
+        "grid grid-cols-[1fr_auto] items-start gap-3 rounded-lg border bg-surface-2 p-3 text-left transition",
         isSelected ? "border-teal-400 ring-2 ring-teal-100" : "border-slate-200 hover:border-slate-300",
       )}
     >

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { HeaderControls } from "@/components/system/header-controls";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { env } from "@/lib/env";
@@ -20,14 +21,18 @@ export default function SettingsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">设置</h1>
-          <p className="mt-1 text-sm text-slate-500">运行配置只读；应用偏好与数据清理可在下方操作。</p>
+      <header className="panel-elevated flex items-center justify-between rounded-xl px-5 py-4">
+        <div className="flex flex-col gap-1.5">
+          <span className="kicker">Control Surface</span>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">设置</h1>
+          <p className="text-sm text-slate-500">运行配置只读；应用偏好与数据清理可在下方操作。</p>
         </div>
-        <Button href="/" variant="secondary">
-          返回首页
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button href="/" variant="secondary">
+            返回首页
+          </Button>
+          <HeaderControls />
+        </div>
       </header>
 
       <SettingsForm initial={appSettings} />

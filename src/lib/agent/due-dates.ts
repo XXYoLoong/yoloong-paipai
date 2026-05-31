@@ -34,7 +34,7 @@ function formatDueDate(date: Date) {
 
 function startOfToday(now = new Date()) {
   const start = new Date(now);
-  start.setHours(12, 0, 0, 0, 0);
+  start.setHours(12, 0, 0, 0);
   return start;
 }
 
@@ -74,7 +74,7 @@ function distributeDueDates(taskList: PlanTask[], start: Date, end: Date) {
   });
 }
 
-function stripPastDueDates(taskList: PlanTask[], start: Date) {
+function stripPastDueDates(taskList: PlanTask[], start: Date): PlanTask[] {
   return taskList.map((task) => {
     const parsed = parseDate(task.dueDate);
     const dueDate = parsed && parsed.getTime() < start.getTime() ? undefined : task.dueDate?.trim();

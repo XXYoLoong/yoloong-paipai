@@ -12,10 +12,12 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-teal-700 text-white shadow-sm hover:bg-teal-800 disabled:bg-slate-300",
-  secondary: "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50 disabled:text-slate-400",
-  ghost: "text-slate-700 hover:bg-slate-100 disabled:text-slate-400",
-  danger: "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-slate-300",
+  primary:
+    "bg-accent text-[var(--accent-ink)] font-semibold shadow-[0_0_0_1px_rgba(45,212,191,0.4),0_8px_24px_-12px_rgba(45,212,191,0.7)] hover:brightness-110 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none",
+  secondary:
+    "border border-hairline bg-surface-2 text-slate-800 hover:border-hairline-strong hover:text-slate-950 disabled:text-slate-400",
+  ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-950 disabled:text-slate-400",
+  danger: "bg-rose-500 text-white hover:bg-rose-400 disabled:bg-slate-300 disabled:text-slate-500",
 };
 
 const sizes: Record<ButtonSize, string> = {

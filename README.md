@@ -87,6 +87,8 @@ docker compose up --build
 | 报告助手 | `POST /api/reports/generate` |
 | 复盘面板 | 完成率、延期原因、记忆反哺 |
 | 设置 | 访问密码、工具健康检查、清库 |
+| 命令面板 | `⌘K / Ctrl+K` 全局唤起，键盘导航页面、切换主题 |
+| 主题 | 白天 / 夜间双主题，跟随选择持久化（默认夜间石墨） |
 | 质量门禁 | `pnpm check:submit` 提交包检查、AI 使用声明 |
 
 ### 近期稳定性改进
@@ -94,8 +96,20 @@ docker compose up --build
 - **启动诊断**：Docker 路径探测、引擎等待、SearXNG 探活与首页状态条
 - **模型输出**：截断 JSON 修复、解析失败自动 repair、生成后截止时间规范化（不早于今天）
 - **依赖映射**：子任务 flatten 后依赖 ID 重映射为真实 UUID
-- **Hydration**：按钮 `href` 模式、拖拽延迟挂载、表单受控同步
+- **Hydration**：按钮 `href` 模式、拖拽延迟挂载、表单受控同步；时间统一用确定性格式化（`formatStoredDateTime`），不依赖运行环境时区/locale，避免 SSR 与客户端不一致
 - **PDF 中文**：内置 `assets/fonts/SimHei.ttf`，导出不再出现问号；亦可放置 `NotoSansSC-Regular.otf` 或依赖系统字体
+
+## 界面与交互（Graphite Command Center）
+
+面向「Agentic 工具」的指挥中心视觉语言，强调控制感、透明度与专业质感，而非堆砌炫彩颜色或线条动效。
+
+- **双主题**：默认夜间「柔化石墨」（非纯黑画布 + 表面层级 surface ladder），可一键切换白天「近白」主题。主题以 CSS 变量整体翻转，所有组件随之换肤；选择写入 `localStorage`，并通过首屏内联脚本提前注入，避免闪烁。切换入口在每个页头的主题按钮，或命令面板。
+- **设计令牌**：1px 发丝描边（hairline）替代重投影、克制的单一强调色（refined teal）、低饱和状态色（rose/amber/indigo）、等宽字承载编号/计数/时间等元信息、字距大写的区块小标签（kicker）。
+- **指挥台细节**：极淡网格 + 顶部强调晕影的画布纹理、脉冲状态点、品牌名渐变、强调按钮辉光、卡片发丝高光与柔投影。
+- **命令面板（⌘K / Ctrl+K）**：全局唤起，支持模糊搜索、`↑↓` 选择、`↵` 执行、`Esc` 关闭；内置页面导航与主题切换命令。
+- **信息结构**：首页「Intent Console / 命令栏」、生成过程「Live Runway」竖向轨道、计划详情「Mission Board」与依赖时间轴「Dependency Rail」（节点 + 等宽编号）。
+
+实现集中在 `src/app/globals.css`（令牌与双主题）、`src/components/ui/*`（原语）与 `src/components/system/*`（主题切换、命令面板）。
 
 ## 质量命令
 

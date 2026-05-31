@@ -48,7 +48,7 @@ export function TemplatePicker({
         {templates.map((template) => (
           <button
             className={`rounded-lg border p-3 text-left text-sm transition hover:border-teal-300 hover:bg-teal-50 ${
-              selectedId === template.id ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white"
+              selectedId === template.id ? "border-teal-500 bg-teal-50" : "border-hairline bg-surface-2"
             }`}
             key={template.id}
             type="button"
