@@ -1,6 +1,23 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+/**
+ * SQLite 数据模型（Drizzle ORM）。本地单文件库，10 张表围绕「计划」聚合：
+ *
+ *   plans            计划主表（目标、类型、状态、假设/补充问题/搜索词等 JSON 快照）
+ *   tasks            任务表，自引用 parent_task_id 形成子任务树；依赖以 JSON 存 id 数组
+ *   evidence_items   SearXNG 取回的来源证据（含可信度分级与引用理由）
+ *   search_cache     按 query_hash 缓存搜索结果，降低重复联网开销
+ *   agent_runs       每次生成的运行日志（模型、token、阶段日志、延迟、回退原因）
+ *   settings         键值配置（访问密码等）
+ *   user_memory      按目标类型沉淀的用户偏好/约束，供同类目标检索复用
+ *   templates        内置/自定义目标模板
+ *   plan_reviews     复盘记录（完成率、延期原因）
+ *   export_jobs      导出任务（格式、状态、脱敏标记）
+ *
+ * 约定：复杂结构统一以 *_json 文本列保存，读写经 src/lib/db/json.ts 收敛序列化逻辑；
+ * 时间列用文本（CURRENT_TIMESTAMP），展示层用确定性格式化避免时区/hydration 抖动。
+ */
 export const plans = sqliteTable("plans", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),

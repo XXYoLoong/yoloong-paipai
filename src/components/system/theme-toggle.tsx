@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * 主题切换（白天 / 夜间）。
+ * 主题以 <html> 上的 .dark class 表达，真实数值在 globals.css 里随 class 整体翻转。
+ * 用 useSyncExternalStore 读取「外部可变状态」（document 的 class），
+ * 既符合 React 官方对外部状态的订阅范式，也规避了 hydration 不一致与「effect 内同步 setState」。
+ * applyTheme 写入 localStorage 并派发 themechange 事件，供本组件与命令面板共享同一开关。
+ */
+
 import * as React from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";

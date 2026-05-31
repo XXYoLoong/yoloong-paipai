@@ -2,6 +2,12 @@
   "name": "youlong-paipai",
   "version": "0.1.0",
   "private": true,
+  "description": "游龙排排：基于 DeepSeek API 与本地 SearXNG 的智能任务规划器（Next.js + React + TypeScript）",
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20.0.0 <23.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,7 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "report:pdf": "node scripts/build-report-pdf.mjs",
+    "package:0601": "node scripts/build-submission.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

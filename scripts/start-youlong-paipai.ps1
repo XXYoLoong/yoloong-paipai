@@ -347,11 +347,13 @@ Write-Host "项目目录：$ProjectRoot"
 Write-Step "检查 DeepSeek 本地环境变量"
 $deepSeekKey = Use-LocalEnv "DEEPSEEK_API_KEY"
 if ([string]::IsNullOrWhiteSpace($deepSeekKey)) {
-  Write-Host "未检测到 DEEPSEEK_API_KEY。已检查当前进程、Windows 用户环境变量、Windows 系统环境变量。" -ForegroundColor Red
-  Write-Host "请手动增加本地环境变量后重新启动：" -ForegroundColor Yellow
-  Write-Host 'setx DEEPSEEK_API_KEY "你的 DeepSeek Key"' -ForegroundColor Yellow
-  Write-Host "注意：setx 只影响新打开的终端窗口，设置后请重新双击启动脚本。" -ForegroundColor Yellow
-  throw "没有配置 DeepSeek 密钥，已停止启动。"
+  # 关键：没有密钥不阻塞启动。应用会自动降级为「本地基础拆解」，全新电脑也能一键跑起来。
+  Write-Banner "未配置 DeepSeek 密钥（不影响启动）" @(
+    "未检测到 DEEPSEEK_API_KEY，应用将自动使用「本地基础拆解」继续运行，可正常演示。"
+    "如需更高质量的 AI 拆解，请配置密钥后重启脚本："
+    '  setx DEEPSEEK_API_KEY "你的 DeepSeek Key"'
+    "提示：setx 只对新打开的窗口生效，设置后请重新双击启动脚本。"
+  ) "Yellow"
 } else {
   Write-Host "已检测到 DEEPSEEK_API_KEY，并已注入当前启动进程；不会写入项目文件。" -ForegroundColor Green
 }
@@ -404,18 +406,71 @@ if (Test-DevServerRunning $WebUrl) {
   exit 0
 }
 
-Write-Step "检查依赖工具"
-if (-not (Test-Command "node")) {
-  throw "未找到 node。请先安装 Node.js。"
+Write-Step "检查并准备运行环境（Node.js / pnpm）"
+
+# 把最新的「机器级 + 用户级」PATH 同步进当前进程，确保刚安装的 node/pnpm 立刻可用
+function Update-ProcessPath {
+  $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
+  $user = [Environment]::GetEnvironmentVariable("Path", "User")
+  $env:Path = (@($machine, $user) | Where-Object { $_ }) -join ";"
 }
-if (-not (Test-Command "pnpm")) {
-  if (Test-Command "corepack") {
-    Write-Host "未找到 pnpm，正在尝试通过 corepack 启用 pnpm..."
-    corepack enable
+
+# 零环境兜底：老师机器可能完全没有 Node.js，这里尝试用 winget 自动安装 22 LTS
+if (-not (Test-Command "node")) {
+  Write-Host "未检测到 Node.js，正在尝试自动安装 Node.js 22 LTS…" -ForegroundColor Yellow
+  if (Test-Command "winget") {
+    try {
+      winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent
+    } catch {
+      Write-Host "winget 安装 Node.js 时出现异常：$($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+    Update-ProcessPath
+    # 兜底：刚装好的 Node 可能尚未刷新到当前进程 PATH，直接补上标准安装目录
+    $nodeDir = Join-Path $env:ProgramFiles "nodejs"
+    if (Test-Path (Join-Path $nodeDir "node.exe")) {
+      $env:Path = "$nodeDir;$env:Path"
+    }
   } else {
-    throw "未找到 pnpm，也未找到 corepack。请先安装 pnpm。"
+    Write-Host "系统未提供 winget，无法自动安装。" -ForegroundColor DarkYellow
   }
 }
+
+if (-not (Test-Command "node")) {
+  Write-Banner "缺少 Node.js 运行环境" @(
+    "未能自动安装 Node.js。请手动安装后重新双击 start-youlong-paipai.bat："
+    "  1) 打开 https://nodejs.org/zh-cn 下载并安装 Node.js 22 LTS（一路「下一步」即可）；"
+    "  2) 安装完成后请关闭所有终端，再重新双击 start-youlong-paipai.bat。"
+    "说明：本项目是 Node.js / Next.js 应用，运行时只依赖 Node.js，无需安装 Python。"
+  ) "Red"
+  try { Start-Process "https://nodejs.org/zh-cn" | Out-Null } catch {}
+  throw "未安装 Node.js，已停止启动。"
+}
+
+Write-Host "Node.js 版本：$(node -v)" -ForegroundColor Green
+
+# 通过 corepack 激活与 package.json 中 packageManager 对齐的 pnpm 版本，避免污染全局
+if (Test-Command "corepack") {
+  try {
+    corepack enable | Out-Null
+    corepack prepare pnpm@11.1.2 --activate | Out-Null
+  } catch {
+    Write-Host "corepack 准备 pnpm 时出现告警：$($_.Exception.Message)" -ForegroundColor DarkYellow
+  }
+  Update-ProcessPath
+}
+
+# corepack 不可用时，退而求其次用 npm 安装 pnpm
+if (-not (Test-Command "pnpm") -and (Test-Command "npm")) {
+  Write-Host "未找到 pnpm，正在通过 npm 安装 pnpm…" -ForegroundColor Yellow
+  npm install -g pnpm@11.1.2 | Out-Null
+  Update-ProcessPath
+}
+
+if (-not (Test-Command "pnpm")) {
+  throw "未能自动准备 pnpm。请在终端执行：npm install -g pnpm，然后重新双击启动脚本。"
+}
+
+Write-Host "pnpm 版本：$(pnpm -v)" -ForegroundColor Green
 
 Write-Step "安装/校验前端依赖"
 pnpm install

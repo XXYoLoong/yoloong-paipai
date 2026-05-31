@@ -1,5 +1,12 @@
 import "server-only";
 
+/**
+ * Agent 记忆中心。按「目标类型」维度沉淀用户的偏好与约束：
+ * - retrieveMemoryContext：生成前检索同类目标的历史偏好，拼成上下文注入 Prompt；
+ * - upsertMemoryFromPlan：生成后从本次输入回写记忆，让同类目标越用越贴合。
+ * 仅保留最近 MAX_MEMORY_ITEMS 条，避免上下文无限膨胀。记忆只存本地库，可在设置页清空。
+ */
+
 import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { db, initDb } from "@/lib/db";

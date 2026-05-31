@@ -14,22 +14,46 @@
 - 交互：React Hook Form、@dnd-kit、lucide-react
 - 测试：Vitest
 
+## 运行环境
+
+本项目是**纯 Node.js / Next.js 应用，运行时只依赖 Node.js，不需要安装 Python**。环境通过以下方式锁定（相当于 Node 版的「虚拟环境」隔离）：
+
+- `engines`：限定 Node `>=20 <23`（开发与验收均用 **Node 22 LTS**）
+- `packageManager`：固定 `pnpm@11.1.2`（一键脚本通过 `corepack` 自动激活同版本）
+- `.nvmrc`：写明 `22`，使用 `nvm` 的同学可 `nvm use`
+
 ## 快速开始
 
-### Windows 一键启动（推荐）
+### Windows 一键启动（强烈推荐，零环境也能跑）
+
+双击或在终端运行：
 
 ```bat
 start-youlong-paipai.bat
 ```
 
-脚本会自动完成：
+即使是**刚买回来、什么都没装（没有 Node、没有 pnpm、没有 Docker、没有密钥、没有 Python）**的机器，脚本也会自动完成：
 
-1. 从系统/用户环境变量读取 `DEEPSEEK_API_KEY`（**不会**写入项目文件）
-2. 检测并尝试启动 Docker Desktop，再 `docker compose up -d searxng`
-3. 若 3000 端口已有开发服务则复用，否则启动 `pnpm dev`
-4. 写入 `logs/startup.log` 与 `logs/startup-status.txt`，终端打印 SearXNG 就绪状态
+1. **检测 Node.js**；缺失时尝试用 `winget` 自动安装 Node.js 22 LTS，并把安装目录补进当前进程 PATH（失败则给出中文指引并自动打开下载页）
+2. **准备 pnpm**：通过 Node 自带的 `corepack` 激活与 `package.json` 对齐的 pnpm 版本（必要时回退 `npm i -g pnpm`）
+3. **安装全部依赖**（`pnpm install`）并自动校验/重建原生模块 `better-sqlite3`
+4. 读取 `DEEPSEEK_API_KEY`（**不会**写入项目文件）；**没有密钥也不会停止**，自动降级为本地基础拆解
+5. 检测并尝试启动 Docker Desktop，再 `docker compose up -d searxng`；**没有 Docker 也不会停止**，仅关闭联网搜索并提示
+6. 启动 `pnpm dev` 并在就绪后自动打开浏览器；写入 `logs/startup.log` 与 `logs/startup-status.txt`
 
-密钥读取顺序：当前终端 → Windows 用户变量 → Windows 系统变量。三层都没有时，脚本会停止并提示执行 `setx DEEPSEEK_API_KEY "你的 DeepSeek Key"`。
+> 启动脚本顶部已 `chcp 65001`，全程为 **UTF-8 中文提示**，不会乱码。
+
+> **关于装 Node 的唯一边界**：自动安装 Node 依赖系统自带的 `winget`（Win11 与较新的 Win10 都有），过程中**可能弹一次 UAC 授权（点「是」即可）**。极少数没有 `winget` 的老系统需要按提示**手动装一次 Node**（一路「下一步」），装完重新双击 bat 即全自动。**除装 Node 外，密钥 / Docker / pnpm / Python 全都「没有也能一键跑起来」。**
+
+### macOS / Linux 一键启动
+
+```bash
+bash start-youlong-paipai.sh
+```
+
+同样会自动准备 pnpm、安装依赖、校验原生模块并启动开发服务。
+
+密钥读取顺序：当前终端 → Windows 用户变量 → Windows 系统变量。**三层都没有时不会中断启动**，应用自动降级为本地基础拆解（方便课堂演示）；若需更高质量的 AI 拆解，可执行 `setx DEEPSEEK_API_KEY "你的 DeepSeek Key"` 后重新双击 bat（`setx` 只对新窗口生效）。
 
 **SearXNG 未就绪时**：首页与设置页会显示醒目提示；应用仍可用本地基础拆解，联网搜索需修复 Docker 后重新运行 bat。
 
@@ -131,13 +155,22 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm check:submit && pnpm build
 
 ```
 src/app/          Next.js 页面与 API 路由
-src/components/   规划器、设置、导出等 UI
+src/components/   规划器、设置、导出、系统级（主题/命令面板）UI
 src/lib/agent/    Agent 编排、Prompt、记忆、JSON 解析
+src/lib/search/   SearXNG 客户端与来源可信度分级
 src/lib/export/   md/docx/pdf/xlsx/bundle 导出
+src/lib/db/       Drizzle schema、查询与初始化
 assets/fonts/     PDF 中文字体（SimHei.ttf）
-scripts/          一键启动、提交包检查
-docs/             二期审计、过程日志、AI 声明
+scripts/          一键启动、原生模块自检、提交检查、报告与提交包生成
+docs/             审计、过程日志、AI 声明、项目计划书 PDF 与报告插图
 ```
+
+## 项目报告与提交包
+
+- **项目计划书（含 AI 使用声明）PDF**：`docs/游龙排排-项目计划书.pdf`
+  - 正文为项目报告（项目背景、需求、技术选型、架构与数据模型/ER 图、Agent 实现细节、功能与界面截图、工程质量、问题与解决、部署、总结展望）；末章为独立的「AI 工具使用声明（开发过程）」。
+  - 重新生成：`pnpm report:pdf`（复用项目内的 pdf-lib 与中文字体，无需额外环境）。
+- **提交包（去依赖的代码副本 + 报告）**：`pnpm package:0601` 会在项目根生成 `0601/` 文件夹，内含全部源码（不含 `node_modules`、`.next`、`data`、日志与 `.env`）、依赖描述文件、一键启动脚本与上述报告 PDF，可直接打包提交。
 
 ## 文档
 

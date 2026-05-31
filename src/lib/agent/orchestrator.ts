@@ -1,5 +1,19 @@
 import "server-only";
 
+/**
+ * Agent 规划主编排器（服务端）。
+ *
+ * 整条流水线被刻意设计为「线性状态机 + 全程降级」：
+ *   意图识别 → 槽位抽取 → 补充问题 → 记忆检索 → 搜索规划 → SearXNG 取证
+ *   → DeepSeek 结构化生成（失败回退本地启发式）→ schema 校验 → 时间/依赖规范化 → 落库
+ *
+ * 关键设计取舍：
+ * - 任意一步（搜索、模型）失败都不会中断整体，而是 pushWarning + 切换降级路径，
+ *   保证「没有密钥 / 没有 Docker」时课堂演示仍可产出可用计划；
+ * - 每一步通过 pushStage 推送 StageLogEntry，既写入 agent_runs 持久化，也经回调用于 SSE 实时反馈；
+ * - 落库在单个事务内完成，子任务先 flatten 再把模型给的临时依赖 id 重映射为真实 UUID。
+ */
+
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, initDb } from "@/lib/db";

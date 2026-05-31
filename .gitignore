@@ -47,3 +47,6 @@ next-env.d.ts
 
 # local app data
 /data
+
+# 提交导出包（由 scripts/build-submission.mjs 生成的代码副本，避免把项目自身的副本提交进仓库）
+/0601

@@ -1,5 +1,12 @@
 import type { CredibilityLevel } from "@/lib/types";
 
+/**
+ * 来源可信度分级（high / medium / low / unverified）。
+ *
+ * 采用「域名白名单 + 官方关键词」的轻量启发式，而非引入外部信誉库：
+ * 政府/教育/百科类域名直接判高；命中官方关键词上调；其余按是否有摘要/正文给中低分。
+ * 目的是给生成结果附上可解释的引用理由（citationReason），而不是做权威事实核验。
+ */
 const TRUSTED_DOMAINS = [
   ".gov.cn",
   ".edu.cn",
