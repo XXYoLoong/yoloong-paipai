@@ -59,6 +59,8 @@ docker compose up -d searxng
 
 本地数据默认写入 `data/youlong.sqlite`（已在 `.gitignore`，首次启动自动建库）。
 
+**Node 升级后首页 500 / `NODE_MODULE_VERSION` 报错**：说明 `better-sqlite3` 原生模块与当前 Node 不匹配。一键启动脚本会自动 `pnpm rebuild better-sqlite3`；也可手动执行 `pnpm ensure:native` 或 `pnpm rebuild better-sqlite3` 后重新运行 bat。
+
 ## Docker 全量部署
 
 ```bash

@@ -419,6 +419,15 @@ if (-not (Test-Command "pnpm")) {
 
 Write-Step "安装/校验前端依赖"
 pnpm install
+if ($LASTEXITCODE -ne 0) {
+  throw "pnpm install 失败，退出码 $LASTEXITCODE"
+}
+
+Write-Step "校验原生模块（better-sqlite3）"
+node (Join-Path $ProjectRoot "scripts\ensure-native-modules.mjs")
+if ($LASTEXITCODE -ne 0) {
+  throw "better-sqlite3 与当前 Node 不兼容且自动修复失败。请在项目目录执行：pnpm rebuild better-sqlite3"
+}
 
 Write-Step "启动 Next.js 开发服务"
 Write-Host "Web 地址：$WebUrl" -ForegroundColor Green

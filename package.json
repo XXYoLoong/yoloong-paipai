@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check:submit": "node scripts/check-submit-package.mjs",
+    "ensure:native": "node scripts/ensure-native-modules.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
