@@ -350,9 +350,7 @@ if ([string]::IsNullOrWhiteSpace($deepSeekKey)) {
   # 关键：没有密钥不阻塞启动。应用会自动降级为「本地基础拆解」，全新电脑也能一键跑起来。
   Write-Banner "未配置 DeepSeek 密钥（不影响启动）" @(
     "未检测到 DEEPSEEK_API_KEY，应用将自动使用「本地基础拆解」继续运行，可正常演示。"
-    "如需更高质量的 AI 拆解，请配置密钥后重启脚本："
-    '  setx DEEPSEEK_API_KEY "你的 DeepSeek Key"'
-    "提示：setx 只对新打开的窗口生效，设置后请重新双击启动脚本。"
+    "如需更高质量的 AI 拆解，请在系统环境变量中配置 DEEPSEEK_API_KEY 后重新双击启动脚本。"
   ) "Yellow"
 } else {
   Write-Host "已检测到 DEEPSEEK_API_KEY，并已注入当前启动进程；不会写入项目文件。" -ForegroundColor Green

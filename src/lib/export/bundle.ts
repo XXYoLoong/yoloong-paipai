@@ -32,7 +32,7 @@ export async function buildSubmitBundle(plan: PlanWithTasks, reportMarkdown?: st
 
   zip.file(
     "README_EXPORT.txt",
-    `游龙排排导出包\n计划：${plan.title}\n生成时间：${new Date().toLocaleString("zh-CN")}\n请勿将本包分享给未授权人员。`,
+    `游龙排排导出包\n计划：${plan.title}\n生成时间：${new Date().toLocaleString("zh-CN")}\n本包由本地应用导出，仅供个人备份与课程提交使用。`,
   );
 
   return zip.generateAsync({ type: "nodebuffer" });

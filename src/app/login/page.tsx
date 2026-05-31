@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <span className="kicker">Access Gate</span>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">访问保护</h1>
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              该演示环境已启用访问密码，登录后即可使用游龙排排。
+              当前实例已启用访问密码，登录后即可使用游龙排排。
             </p>
           </div>
         </div>

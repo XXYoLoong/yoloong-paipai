@@ -2,8 +2,6 @@
 
 基于 `Next.js App Router + React 19 + TypeScript` 的智能任务规划器。用户输入复杂目标后，系统会通过轻量 Agent 状态机拆解任务，按需调用本地 SearXNG 查询公开信息，再生成可编辑、可拖拽、可导出的 To-do List。
 
-**仓库**：https://github.com/XXYoLoong/yoloong-paipai
-
 ## 技术栈
 
 - Web：Next.js 16、React 19、TypeScript、Tailwind CSS v4
@@ -32,7 +30,7 @@
 start-youlong-paipai.bat
 ```
 
-即使是**刚买回来、什么都没装（没有 Node、没有 pnpm、没有 Docker、没有密钥、没有 Python）**的机器，脚本也会自动完成：
+即使是**全新机器、未安装任何开发环境（没有 Node、没有 pnpm、没有 Docker、没有密钥、没有 Python）**，脚本也会自动完成：
 
 1. **检测 Node.js**；缺失时尝试用 `winget` 自动安装 Node.js 22 LTS，并把安装目录补进当前进程 PATH（失败则给出中文指引并自动打开下载页）
 2. **准备 pnpm**：通过 Node 自带的 `corepack` 激活与 `package.json` 对齐的 pnpm 版本（必要时回退 `npm i -g pnpm`）
@@ -53,21 +51,20 @@ bash start-youlong-paipai.sh
 
 同样会自动准备 pnpm、安装依赖、校验原生模块并启动开发服务。
 
-密钥读取顺序：当前终端 → Windows 用户变量 → Windows 系统变量。**三层都没有时不会中断启动**，应用自动降级为本地基础拆解（方便课堂演示）；若需更高质量的 AI 拆解，可执行 `setx DEEPSEEK_API_KEY "你的 DeepSeek Key"` 后重新双击 bat（`setx` 只对新窗口生效）。
+密钥读取顺序：当前终端 → Windows 用户变量 → Windows 系统变量。**三层都没有时不会中断启动**，应用自动降级为本地基础拆解；若需更高质量的 AI 拆解，可在系统环境变量中配置 `DEEPSEEK_API_KEY` 后重新双击 bat。
 
 **SearXNG 未就绪时**：首页与设置页会显示醒目提示；应用仍可用本地基础拆解，联网搜索需修复 Docker 后重新运行 bat。
 
 ### 手动开发
 
 ```bash
-git clone https://github.com/XXYoLoong/youlong-paipai.git
 cd youlong-paipai
 pnpm install
 cp .env.example .env
 pnpm dev
 ```
 
-没有 `DEEPSEEK_API_KEY` 时，应用会自动使用本地基础拆解，方便课堂演示。若要启用联网搜索：
+没有 `DEEPSEEK_API_KEY` 时，应用会自动使用本地基础拆解。若要启用联网搜索：
 
 ```bash
 docker compose up -d searxng
@@ -94,9 +91,7 @@ docker compose up --build
 
 默认数据保存在 Docker volume `youlong-data` 中，SQLite 路径为 `/data/youlong.sqlite`。
 
-## 核心功能（V2.0）
-
-二期功能（F-01～F-18，不含 F-14 公网部署、F-15 演示视频）已全部落地，详见 [`docs/phase2-completion-audit.md`](docs/phase2-completion-audit.md)。
+## 核心功能
 
 | 模块 | 能力 |
 |------|------|
@@ -145,7 +140,7 @@ pnpm check:submit  # 拦截 logs/output/.env 等不应提交的内容
 pnpm build
 ```
 
-一键验收（与审计文档一致）：
+一键验收：
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test && pnpm check:submit && pnpm build
@@ -162,7 +157,7 @@ src/lib/export/   md/docx/pdf/xlsx/bundle 导出
 src/lib/db/       Drizzle schema、查询与初始化
 assets/fonts/     PDF 中文字体（SimHei.ttf）
 scripts/          一键启动、原生模块自检、提交检查、报告与提交包生成
-docs/             审计、过程日志、AI 声明、项目计划书 PDF 与报告插图
+docs/             AI 声明、项目计划书 PDF 与报告插图
 ```
 
 ## 项目报告与提交包
@@ -174,8 +169,6 @@ docs/             审计、过程日志、AI 声明、项目计划书 PDF 与报
 
 ## 文档
 
-- [二期功能完成度审计](docs/phase2-completion-audit.md)
-- [开发过程日志](docs/step-by-step-log.md)
 - [AI 工具使用声明](docs/ai-tool-usage-statement.md)
 
 ## 隐私策略

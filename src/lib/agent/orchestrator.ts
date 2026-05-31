@@ -9,7 +9,7 @@ import "server-only";
  *
  * 关键设计取舍：
  * - 任意一步（搜索、模型）失败都不会中断整体，而是 pushWarning + 切换降级路径，
- *   保证「没有密钥 / 没有 Docker」时课堂演示仍可产出可用计划；
+ *   保证「没有密钥 / 没有 Docker」时本地评审仍可产出可用计划；
  * - 每一步通过 pushStage 推送 StageLogEntry，既写入 agent_runs 持久化，也经回调用于 SSE 实时反馈；
  * - 落库在单个事务内完成，子任务先 flatten 再把模型给的临时依赖 id 重映射为真实 UUID。
  */

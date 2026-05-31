@@ -350,7 +350,7 @@ export function PlannerApp({
 
         <section className="flex flex-col gap-6">
           <div className="grid gap-3 sm:grid-cols-3">
-            <InfoStrip icon={ShieldCheck} title="私有保存" description="计划只进入本地数据库" />
+            <InfoStrip icon={ShieldCheck} title="本地保存" description="计划只进入本地数据库" />
             <InfoStrip icon={Search} title="本地搜索" description="通过自部署 SearXNG 查询" />
             <InfoStrip icon={CalendarDays} title="可执行" description="任务能编辑、排序、导出" />
           </div>

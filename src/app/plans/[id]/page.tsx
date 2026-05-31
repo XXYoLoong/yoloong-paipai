@@ -114,7 +114,7 @@ export default async function PlanPage({ params }: PageProps) {
           <Card>
             <CardHeader>
               <CardTitle>搜索来源</CardTitle>
-              <CardDescription>含可信度分级（F-05）。</CardDescription>
+              <CardDescription>含可信度分级。</CardDescription>
             </CardHeader>
             <CardContent className="flex max-h-[420px] flex-col gap-3 overflow-auto">
               {plan.evidenceItems.length ? (

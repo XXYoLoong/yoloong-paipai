@@ -50,7 +50,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             onChange={(event) => setPassword(event.target.value)}
           />
           <FieldDescription>
-            密码只用于当前演示环境访问控制，不会进入浏览器脚本。
+            密码只用于当前实例的访问控制，不会进入浏览器脚本。
           </FieldDescription>
         </Field>
         {error ? (
